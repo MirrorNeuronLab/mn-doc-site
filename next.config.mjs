@@ -7,4 +7,14 @@ const config = {
   reactStrictMode: true,
 };
 
-export default withMDX(config);
+export default withMDX({
+  async redirects() {
+    return [
+      {
+        source: '/',
+        destination: '/docs',
+        permanent: false,
+      },
+    ];
+  },
+});
