@@ -1,6 +1,6 @@
 ---
-title: "Validate And Run Your First Workflow"
-description: "Documentation for Validate And Run Your First Workflow."
+title: "Quickstart"
+description: "Documentation for Quickstart Your First Workflow."
 ---
 
 # Validate And Run Your First Workflow
@@ -11,81 +11,50 @@ This tutorial gets you from a fresh checkout to one validated workflow and one s
 
 By the end, you will have:
 
-- validated a checked-in job bundle
-- started Redis
-- started the MirrorNeuron runtime
-- submitted one workflow
-- inspected job state
-
+Launch a complex AI workflow with one command, and the runtime automatically resolves the required configuration. Once running, the workflow depends only on local resources, including locally available AI models. It can continue operating without internet connectivity.
 ## Before You Start
 
 You need:
 
-- macOS, Linux, or WSL2
-- Python 3.10+
-- Elixir/Erlang
-- Docker
-- the `mn` CLI on your PATH
+- A PC with at least 16GB RAM running macOS, Linux, or Windows with WSL2
+- [Docker](https://www.docker.com/products/docker-desktop) installed and running
 
 If those are not ready yet, follow [Installation](installation.md) first.
 
-## Step 1: Validate A Bundle
+## Step 1: install the runtime
 
-From the workspace root:
-
-```bash
-mn blueprint validate mn-blueprints/message_routing_trace
+```
+curl -fsSL https://mirrorneuron.io/install.sh | bash
 ```
 
-Expected output:
-
-```text
-Job bundle at 'mn-blueprints/message_routing_trace' is valid.
-```
-
-This checks the local manifest and input contract without submitting a runtime job.
-
-## Step 2: Start Redis
-
-```bash
-docker rm -f mirror-neuron-redis 2>/dev/null || true
-docker run -d --name mirror-neuron-redis -p 6379:6379 redis:7
-docker exec mirror-neuron-redis redis-cli ping
-```
-
-Expected output:
-
-```text
-PONG
-```
-
-## Step 3: Start The Runtime
+This will install the `mn` CLI and the runtime and start it automatically. If you already have the runtime installed, you can start it with:
 
 ```bash
 mn runtime start
 ```
 
-Expected output:
+This checks the local manifest and input contract without submitting a runtime job.
 
-```text
-MirrorNeuron services started
-```
-
-If your local command prints a different success line, verify with:
+## Step 2: Start a job from a blueprint
 
 ```bash
-mn node list
+mn blueprint run vc_assistant
 ```
 
-Expected output includes:
+This is a simple workflow to act like a VC scout to analysis a few startup, using both web search and a local LLM model. The CLI will print the job id and live events and numerical tools to quick screen their value. The method we are using is from common VC practices. 
+You can close the winodw, the job will continue to run in the background. You can check the job status with: 
 
-```json
-{
-  "nodes": []
-}
+```bash
+mn job monitor <job_id>
 ```
 
-or a non-empty `nodes` list when the core runtime is reachable.
+## Step 3: Check the result
+
+Typically, the job will running in more than 10 minutes, depends on yout PC. Once it's completed. You can have its results at a local folder:
+
+```bash
+~/Downloads/vc_assistant
+```
 
 ## Step 4: Run The Workflow
 

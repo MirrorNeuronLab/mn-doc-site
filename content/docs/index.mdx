@@ -1,11 +1,11 @@
 ---
 title: "MirrorNeuron Documentation"
-description: "Documentation for MirrorNeuron Documentation."
+description: "Documentation for MirrorNeuron local AI runtime."
 ---
 
 # MirrorNeuron Documentation
 
-MirrorNeuron is a durable runtime and control plane for adaptive, message-driven AI workflows. It runs on a laptop, on edge boxes, or across a small cluster.
+MirrorNeuron is a durable runtime and control plane for adaptive, message-driven AI workflows built for local and edge environments. It is designed for applications where low latency, privacy, reliability, or offline operation are critical.
 
 The documentation has two goals:
 
@@ -14,20 +14,16 @@ The documentation has two goals:
 
 ## Start Here
 
-1. [README](README.md): project overview, quick start, and doc map.
-2. [Component Guide](component-guide.md): choose the right folder and validation command.
-3. [Quickstart](quickstart.md): validate and run your first workflow.
-4. [Installation](installation.md): install runtime dependencies and start local services.
-5. [Security Model](security.md): understand what powers you are giving the runtime.
-6. [Troubleshooting](troubleshooting.md): common setup, Redis, OpenShell, and cluster errors.
+1. [Quickstart](quickstart.md): validate and run your first workflow.
+2. [Installation](installation.md): install runtime dependencies and start local services.
 
 ## Documentation Map
 
 | Page | Type | Use it when |
 | --- | --- | --- |
-| [Component Guide](component-guide.md) | Overview | You need the repository map, folder responsibilities, and local validation commands. |
 | [Quickstart](quickstart.md) | Tutorial | You want the shortest path to first success. |
 | [Installation](installation.md) | Tutorial | You need to install Redis, OpenShell, Elixir, and Python tooling. |
+| [Component Guide](component-guide.md) | Overview | You need the repository map, folder responsibilities, and local validation commands. |
 | [Examples](examples.md) | Tutorial | You want to choose the right checked-in blueprint. |
 | [Skill Catalog](skill-catalog.md) | Reference | You need centralized summaries for reusable skill packages. |
 | [Cluster Guide](cluster.md) | How-to | You need to start or inspect a multi-box runtime. |
@@ -55,32 +51,6 @@ The documentation has two goals:
 | [Contributing](contributing.md) | Tutorial | You are preparing a pull request. |
 | [Documentation Style](documentation-style.md) | Reference | You are editing docs. |
 
-## First Safe Workflow
-
-After Redis and the runtime are started, run the smallest checked-in workflow:
-
-```bash
-mn blueprint run message_routing_trace
-```
-
-Expected output:
-
-```text
-Job submitted successfully
-```
-
-## Security Quick Read
-
-MirrorNeuron can run local commands, create sandboxes, call APIs, pass selected secrets into workers, and coordinate jobs across boxes. Before using it in a shared or production environment:
-
-- Review every bundle before running it.
-- Keep `pass_env` narrow.
-- Prefer OpenShell over HostLocal for less-trusted worker code.
-- Keep Redis protected and use Redis Sentinel for multi-box reliability.
-- Change `MN_COOKIE` for any non-local cluster.
-- Bind API/gRPC listeners only to trusted networks.
-
-Read [Security Model](security.md) for the full checklist.
 
 ## Contributor Path
 

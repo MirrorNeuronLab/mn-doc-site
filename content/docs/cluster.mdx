@@ -5,6 +5,9 @@ description: "Documentation for Cluster Guide."
 
 # Cluster Guide
 
+MirrorNeuron can run on a single laptop, an edge device, or a small heterogeneous cluster. Multiple machines can connect as a swarm, pooling available CPU, GPU, and memory resources to execute AI agents and workflows across local infrastructure. Agents can run natively or inside sandboxes, and workflows can be fully dynamic, agent-driven, or pre-defined like traditional software pipelines.
+The goal of MirrorNeuron is to help individuals and small teams build reliable, scalable, and repeatable AI-powered workflows that create business value without depending entirely on centralized cloud infrastructure.
+
 This guide describes how MirrorNeuron forms a small multi-computer runtime and how the cluster places, moves, and protects work.
 
 MirrorNeuron's cluster model is intentionally lightweight. It is closer to a small Nomad-style lab scheduler than to a large container control plane: the runtime places agents on eligible machines, keeps durable job state in Redis, and uses conservative recovery when a node disappears.
