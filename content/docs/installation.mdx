@@ -3,32 +3,31 @@ title: "Install MirrorNeuron"
 description: "Documentation for Install MirrorNeuron"
 ---
 
-# Install MirrorNeuron Locally
+# Install MirrorNeuron
 
-This guide installs the dependencies needed to validate bundles, run local workflows, and execute the test suite.
+This guide installs the dependencies required to validate bundles, run local workflows, and execute the test suite.
 
 ## Requirements
 
-- macOS, Linux, or WSL2
+- macOS, Linux, or Windows with WSL2
 - Docker
 
-Docker Desktop includes the plugin on macOS and Windows. On Linux, please install the runtime plugin manually:
+Docker Desktop includes the required plugin on macOS and Windows. On Linux, install the runtime plugin manually:
 
 ```bash
 sudo apt-get update
 sudo apt-get install docker-model-plugin
 ```
 
+## Install with All-in-one Deployment Script
 
-## Option 1: Install With The Deployment Script
-
-Use the deployment script when you want a system-wide `mn` command.
+Use the deployment script when you want to install MirrorNeuron system-wide and make the `mn` command available from your shell.
 
 ```bash
 curl -fsSL https://mirrorneuron.io/install.sh | bash
 ```
- 
-or you get get install.sh and install it manually with options:
+
+You can also download `install.sh` and run it manually with options:
 
 ```text
 wget https://mirrorneuron.io/install.sh
@@ -36,41 +35,43 @@ bash install.sh --help
 bash install.sh
 ```
 
-Verify:
+Verify the installation:
 
 ```bash
 mn --help
 ```
 
-This will install our latest released verison. If you are looking for legacy versions, please check the github releases.
+This installs the latest released version of MirrorNeuron. If you need a legacy version, check the GitHub releases.
 
+## Configure the Local Environment
 
-## Configure Local Environment
-
-most time, user do not need to configure local environment variables, but if you want to change the default install path, using dev mode. please read ([Development Guide](development.md)).
+Most users do not need to configure local environment variables. If you want to change the default installation path or use development mode, see the [Development Guide](development.md).
 
 ## Uninstall MirrorNeuron
+
 Stop MirrorNeuron:
 
 ```bash
 mn runtime stop
 ```
 
+Run the uninstall script:
+
 ```bash
 curl -fsSL https://mirrorneuron.io/uninstall.sh | bash
 ```
 
 Remove all data and configuration files:
+
 ```bash
 rm -f ~/mn
 ```
 
-If you installed on a cluster, run above command on all nodes to remove MirrorNeuron.
-
+If MirrorNeuron is installed on a cluster, run the commands above on every node to remove it completely.
 
 ## Common Install Issues
 
-If setup does not work as expected:
+If setup does not work as expected, see:
 
 - [Troubleshooting](troubleshooting.md)
 - [Testing](testing.md)
