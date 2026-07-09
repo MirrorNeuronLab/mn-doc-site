@@ -1,6 +1,6 @@
 ---
-title: "Install MirrorNeuron Locally"
-description: "Documentation for Install MirrorNeuron Locally."
+title: "Install MirrorNeuron"
+description: "Documentation for Install MirrorNeuron"
 ---
 
 # Install MirrorNeuron Locally
@@ -10,21 +10,15 @@ This guide installs the dependencies needed to validate bundles, run local workf
 ## Requirements
 
 - macOS, Linux, or WSL2
-- `git`
-- Python 3.10+
-- Docker (and the docker-model runtime plugin)
+- Docker
 
-Docker Desktop includes the plugin on macOS and Windows. On Linux, install the runtime plugin:
+Docker Desktop includes the plugin on macOS and Windows. On Linux, please install the runtime plugin manually:
 
 ```bash
 sudo apt-get update
 sudo apt-get install docker-model-plugin
 ```
 
-Optional:
-
-- model provider keys for LLM blueprints
-- two machines with SSH access for cluster and Redis HA smoke tests
 
 ## Option 1: Install With The Deployment Script
 
@@ -33,11 +27,13 @@ Use the deployment script when you want a system-wide `mn` command.
 ```bash
 curl -fsSL https://mirrorneuron.io/install.sh | bash
 ```
-
-Expected result:
+ 
+or you get get install.sh and install it manually with options:
 
 ```text
-mn installed
+wget https://mirrorneuron.io/install.sh
+bash install.sh --help
+bash install.sh
 ```
 
 Verify:
@@ -46,217 +42,31 @@ Verify:
 mn --help
 ```
 
-Expected output includes:
+This will install our latest released verison. If you are looking for legacy versions, please check the github releases.
 
-```text
-MirrorNeuron CLI
-```
 
-## Option 2: Set Up From The Monorepo
+## Configure Local Environment
 
-From the workspace root:
+most time, user do not need to configure local environment variables, but if you want to change the default install path, using dev mode. please read ([Development Guide](development.md)).
 
-```bash
-python3 -m venv .venv
-. .venv/bin/activate
-python3 -m pip install -r mn-system-tests/requirements.txt
-```
-
-Expected result:
-
-```text
-Successfully installed
-```
-
-The system-test requirements install the local Python SDK and CLI in editable mode.
-
-## Step 1: Install Elixir And Erlang
-
-On macOS with Homebrew:
-
-```bash
-brew install elixir
-elixir --version
-mix --version
-```
-
-Expected output includes:
-
-```text
-Elixir
-Mix
-```
-
-On Linux, use your package manager or `asdf` and verify with the same commands.
-
-## Step 2: Fetch Core Dependencies
-
-```bash
-cd MirrorNeuron
-mix deps.get
-mix compile
-```
-
-Expected output:
-
-```text
-Generated mirror_neuron app
-```
-
-If dependencies are already compiled, Mix may print less output. A zero exit code is the success signal.
-
-## Step 3: Start Redis
-
-The simplest local Redis path is Docker:
-
-```bash
-docker rm -f mirror-neuron-redis 2>/dev/null || true
-docker run -d --name mirror-neuron-redis -p 6379:6379 redis:7
-docker exec mirror-neuron-redis redis-cli ping
-```
-
-Expected output:
-
-```text
-PONG
-```
-
-## Step 4: Install OpenShell
-
-```bash
-curl -LsSf https://raw.githubusercontent.com/NVIDIA/OpenShell/main/install.sh | sh
-~/.local/bin/openshell --version
-```
-
-Expected output includes:
-
-```text
-openshell
-```
-
-If `openshell` is not on your `PATH`:
-
-```bash
-export PATH="$HOME/.local/bin:$PATH"
-```
-
-Or point MirrorNeuron directly to the binary:
-
-```bash
-export MN_OPENSHELL_BIN="$HOME/.local/bin/openshell"
-```
-
-## Step 5: Start The OpenShell Gateway
-
-```bash
-openshell gateway start
-openshell status
-```
-
-Expected output includes:
-
-```text
-Status: Connected
-```
-
-If OpenShell is not needed for your first pure-router workflow, you can skip this until you run executor blueprints.
-
-## Step 6: Configure Local Environment
-
-Recommended local defaults:
-
-```bash
-export MN_REDIS_URL="redis://127.0.0.1:6379/0"
-export MN_EXECUTOR_MAX_CONCURRENCY="4"
-export MN_COOKIE="mirrorneuron"
-```
-
-Optional for LLM-enabled blueprints:
-
-```bash
-export LITELLM_MODEL="gemini/gemini-2.5-flash-lite"
-export LITELLM_API_KEY="..."
-```
-
-Optional for local Docker Model Runner LLM blueprints:
-
-```bash
-docker model status
-mn model install gemma4:e2b
-mn model doctor gemma4:e2b
-```
-
-`gemma4:e2b` resolves to Docker's `ai/gemma4:E2B` model and is the default MirrorNeuron local model for hosts with 8GB VRAM or 16GB unified memory.
-
-Use a unique Redis namespace when running tests beside a developer runtime:
-
-```bash
-export MN_REDIS_NAMESPACE="mirror_neuron_dev_$(date +%s)"
-```
-
-## Step 7: Smoke Test
-
-From the workspace root:
-
-```bash
-mn blueprint run message_routing_trace
-```
-
-Expected output:
-
-```text
-Blueprint 'message_routing_trace' validated. Running...
-```
-
-Start services:
-
-```bash
-mn runtime start
-mn blueprint run message_routing_trace
-```
-
-Expected output:
-
-```text
-Job submitted successfully
-```
-
-## Uninstall Local Services
-
+## Uninstall MirrorNeuron
 Stop MirrorNeuron:
 
 ```bash
 mn runtime stop
 ```
 
-Stop local Redis:
-
 ```bash
-docker rm -f mirror-neuron-redis
+curl -fsSL https://mirrorneuron.io/uninstall.sh | bash
 ```
 
-If installed through the deployment script, remove the install directory and executable:
-
+Remove all data and configuration files:
 ```bash
-rm -rf ~/.local/share/MirrorNeuron
-rm -f ~/.local/bin/mn
+rm -f ~/mn
 ```
 
-Warning: only remove these paths if they belong to the MirrorNeuron install you want to delete.
+If you installed on a cluster, run above command on all nodes to remove MirrorNeuron.
 
-## Security Notes
-
-- Keep local Redis bound to trusted interfaces.
-- Change `MN_COOKIE` before using a real cluster.
-- Do not expose API or gRPC ports publicly without an authentication boundary.
-- Review third-party bundles before running them.
-
-## Cluster Prerequisites
-
-For two-box or larger clusters, continue with:
-
-- [Cluster Guide](cluster.md)
-- [Redis High Availability](redis-ha.md)
 
 ## Common Install Issues
 
