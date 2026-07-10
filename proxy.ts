@@ -12,6 +12,16 @@ const { rewrite: rewriteSuffix } = rewritePath(
 );
 
 export default function proxy(request: NextRequest) {
+  // Source Markdown uses relative `.md` links. When a rendered page is served
+  // at `/docs/<slug>`, those links resolve from the site root; keep them
+  // functional while canonicalizing visitors onto the docs route.
+  const legacyRootDoc = request.nextUrl.pathname.match(/^\/([^/]+)\.mdx?$/);
+  if (legacyRootDoc) {
+    const url = request.nextUrl.clone();
+    url.pathname = `${docsRoute}/${legacyRootDoc[1]}`;
+    return NextResponse.redirect(url, 308);
+  }
+
   const result = rewriteSuffix(request.nextUrl.pathname);
   if (result) {
     return NextResponse.rewrite(new URL(result, request.nextUrl));
