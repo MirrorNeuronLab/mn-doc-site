@@ -1,99 +1,92 @@
 ---
-title: "Quickstart"
-description: "Validate, run, and inspect a local MirrorNeuron blueprint."
+title: "Run Your First Local Workflow"
+description: "Prepare, validate, launch, and inspect a model-backed local MirrorNeuron blueprint."
 ---
 
-# Run Your First Workflow
+# Run Your First Local Workflow
 
-This guide validates a checked-in blueprint, starts the local runtime, submits a workflow, and shows where to inspect the result.
+This tutorial takes a first-time developer from a running local runtime to a validated and submitted blueprint. It uses the checked-in medical de-identification blueprint because its configuration declares a local model requirement and review-only outputs; do not use real health documents for this tutorial.
 
-## Before You Start
+## What you will learn
 
-You need Docker and the `mn` CLI. Complete [Installation](installation.md) first. Blueprint requirements vary: a blueprint may need input files, model access, OpenShell, or other local services. Review its `README.md`, `manifest.json`, and `pass_env` before running it.
+- how to verify the runtime and its local model dependency;
+- how blueprint validation prevents submission when a declared requirement is missing; and
+- how to inspect the resulting job and run artifacts.
 
-## 1. Validate a Local Blueprint
+## Before you begin
 
-From the workspace root:
+- Complete [Installation](installation.md).
+- Start Docker and ensure Docker Model Runner is available.
+- Run commands from the MirrorNeuron workspace root.
+- Use only the checked-in sample configuration. Do not add private or regulated documents.
 
-```bash
-mn blueprint validate otterdesk-blueprints/generic_customer_service_voice_coworker
-```
-
-Expected output includes a successful validation result. This preflight does not submit a job.
-
-## 2. Start and Check the Runtime
-
-```bash
-mn runtime start
-mn runtime health
-mn node list
-```
-
-`mn runtime health` confirms local runtime dependencies; `mn node list` shows the local node or any configured cluster nodes.
-
-## 3. Submit the Workflow
-
-```bash
-mn blueprint run --folder otterdesk-blueprints/generic_customer_service_voice_coworker
-```
-
-The command prints a job ID and may print a run ID. Keep both values: the job ID is for runtime control and the run ID identifies the local run store.
-
-## 4. Inspect the Job
-
-```bash
-mn job list
-mn job status <job_id>
-mn job monitor <job_id>
-```
-
-Use `mn job cancel <job_id>` to stop a running workflow. For blueprint-run artifacts and logs, use:
-
-```bash
-mn blueprint logs <run_id>
-mn blueprint tail <run_id>
-mn blueprint export <run_id> --format markdown
-```
-
-By default, run records are stored under `~/.mn/runs/<run_id>/`. Set `MN_HOME` or `MN_RUNS_ROOT` to use another location.
-
-## 5. Explore Catalog Blueprints
-
-List catalog blueprints configured for the runtime:
-
-```bash
-mn blueprint list
-```
-
-Run a catalog blueprint by its ID only after reviewing its inputs and required services:
-
-```bash
-mn blueprint run <blueprint_id>
-```
-
-For local checkout examples, use [Examples](examples.md).
-
-## Troubleshooting
-
-If `mn` is unavailable, confirm it is on your `PATH`:
-
-```bash
-which mn
-mn --help
-```
-
-If the runtime is unreachable:
+## Step 1: Start and verify the runtime
 
 ```bash
 mn runtime start
 mn runtime health
 ```
 
-For model preflight failures, inspect the requested model:
+Continue only when `mn runtime health` does not report a failed required component.
+
+## Step 2: Install and verify the required local model
+
+The blueprint preflight resolves its default model to `gemma4:e2b`. Install it, then run its diagnostic:
 
 ```bash
-mn model list
+mn model install gemma4:e2b
 mn model doctor gemma4:e2b
 ```
 
-Continue with [Troubleshooting](troubleshooting.md) for Redis, OpenShell, Docker, and cluster failures.
+`mn model doctor` verifies that Docker Model Runner can use the model on this machine. If it reports a hardware-compatibility problem, stop here and choose a blueprint and model profile that match your available hardware.
+
+## Step 3: Validate the blueprint
+
+Validation checks the bundle and declared requirements without submitting a job:
+
+```bash
+mn blueprint validate otterdesk-blueprints/medical_deid_record_intake_assistant
+```
+
+Verification: the command must exit successfully before you continue. If it reports a missing model or service, resolve that requirement and repeat this step; do not submit the blueprint with `--force` merely to bypass preflight.
+
+## Step 4: Submit the workflow
+
+```bash
+mn blueprint run --folder otterdesk-blueprints/medical_deid_record_intake_assistant
+```
+
+The command prints a job ID and may print a run ID. Record both values: the job ID controls the runtime execution, while the run ID identifies blueprint artifacts.
+
+## Step 5: Verify and inspect the result
+
+Replace `<job_id>` and `<run_id>` with the values from the launch command:
+
+```bash
+mn job status <job_id>
+mn job monitor <job_id>
+mn blueprint logs <run_id>
+```
+
+A terminal job state is `completed`, `failed`, or `cancelled`. The blueprint writes run records under `~/.mn/runs/<run_id>/` by default. Inspect its artifacts before treating any output as usable: this blueprint produces a review packet, not an approval to release or share records.
+
+## What happened
+
+The CLI validated the blueprint before submission, then the runtime created a job and scheduled its agents. Job inspection reads runtime state; blueprint log commands read the run-store records associated with the launch. The blueprint's runner, model configuration, inputs, and `pass_env` entries determine what it can access.
+
+## Clean up
+
+Cancel an unfinished job before stopping local services:
+
+```bash
+mn job cancel <job_id>
+mn runtime stop
+```
+
+Do not delete `~/.mn/runs/<run_id>/` until you no longer need the event history and artifacts.
+
+## Next steps
+
+- [Examples](examples.md) to choose a blueprint for your workload and hardware.
+- [Core Concepts](core-concepts.md) to understand jobs, runs, agents, and runtime nodes.
+- [Security Model](security.md) before providing real data or secrets.

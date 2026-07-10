@@ -5,7 +5,16 @@ description: "Documentation for CLI Reference."
 
 # CLI Reference
 
-The `mn` command is the primary user-facing CLI. It uses `mn-python-sdk` to talk to the MirrorNeuron core gRPC runtime.
+The `mn` command is the primary user-facing CLI. It uses `mn-python-sdk` to talk to the MirrorNeuron Core gRPC runtime.
+
+This page is a task-oriented reference. The installed CLI help is authoritative for the exact version on your machine:
+
+```bash
+mn --help
+mn <command-group> --help
+```
+
+Replace `<command-group>` with `blueprint`, `job`, `runtime`, `model`, `node`, `service`, `schedule`, or another group listed by `mn --help`.
 
 Check your installed version:
 
@@ -298,7 +307,7 @@ In a real cluster, `nodes` contains node names, connected peers, and executor po
 Runs the same reconciler used after node-loss recovery and leader orphan sweeps.
 
 ```bash
-mn node reconcile mirror_neuron@192.168.4.20 --reason "manual check" --dry-run
+mn node reconcile mirror_neuron@<node-host> --reason "manual check" --dry-run
 ```
 
 Use `--dry-run` first to see checked, recovered, paused, blocked, skipped, and failed counts.
@@ -308,16 +317,16 @@ Use `--dry-run` first to see checked, recovered, paused, blocked, skipped, and f
 Maintenance mode stops new placements without moving current work:
 
 ```bash
-mn node maintenance mirror_neuron@192.168.4.20 --enable --reason "driver update"
-mn node maintenance mirror_neuron@192.168.4.20 --disable --reason "ready"
+mn node maintenance mirror_neuron@<node-host> --enable --reason "driver update"
+mn node maintenance mirror_neuron@<node-host> --disable --reason "ready"
 ```
 
 Drain mode stops new placements, moves safe service work, lets batch work finish before the deadline, and leaves the node in maintenance until undrained:
 
 ```bash
-mn node drain mirror_neuron@192.168.4.20 --reason "reboot" --deadline 30m --dry-run
-mn node drain mirror_neuron@192.168.4.20 --reason "reboot" --deadline 30m --wait
-mn node undrain mirror_neuron@192.168.4.20 --mark-eligible --reason "ready"
+mn node drain mirror_neuron@<node-host> --reason "reboot" --deadline 30m --dry-run
+mn node drain mirror_neuron@<node-host> --reason "reboot" --deadline 30m --wait
+mn node undrain mirror_neuron@<node-host> --mark-eligible --reason "ready"
 ```
 
 ## `mn resource`
@@ -500,13 +509,13 @@ mn node join <worker-host> --local-host <main-host> --token <worker-token>
 For the inverse flow, expose a core-only node on the second box:
 
 ```bash
-mn node expose --host 192.168.4.20 --network overlay --docker-network mirror-neuron-runtime
+mn node expose --host <worker-host> --network overlay --docker-network mirror-neuron-runtime
 ```
 
 Then add that node from the main box:
 
 ```bash
-mn node add 192.168.4.20 --token <token> --network overlay --docker-network mirror-neuron-runtime
+mn node add <worker-host> --token <token> --network overlay --docker-network mirror-neuron-runtime
 ```
 
 `mn node expose` starts only Core with host gRPC and Docker-internal Redis/Erlang
@@ -521,7 +530,7 @@ CPU, GPU, memory, and disk across the cluster.
 Remove a node from the cluster:
 
 ```bash
-mn node leave mirror_neuron@192.168.4.20
+mn node leave mirror_neuron@<node-host>
 ```
 Leave by node name:
 

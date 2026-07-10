@@ -1,23 +1,24 @@
 ---
 title: "Install MirrorNeuron"
-description: "Install the local MirrorNeuron runtime or set it up from a checkout."
+description: "Install and verify a local MirrorNeuron runtime."
 ---
 
 # Install MirrorNeuron
 
-Use the deployment installer for a supported local runtime. Use local mode when you are working from the MirrorNeuron workspace and need editable components.
+Use this guide to install a local MirrorNeuron runtime and verify that its CLI and services are reachable. Use the deployment installer for a supported runtime; use local mode only when you are working from a workspace checkout.
 
-## Requirements
+## Before you begin
 
-- macOS, Linux, or Windows with WSL2
-- Docker running locally
-- `git`
+- Use macOS, Linux, or Windows with WSL2.
+- Install and start Docker.
+- Install `git`.
+- For editable local development, also install Python 3.11+ and Elixir/Erlang.
 
-For local development, also install Python 3.11+ and Elixir/Erlang. Docker Desktop includes Docker Model Runner on macOS and Windows; on Linux, install the Docker Model Runner plugin separately if you plan to use local models.
+Docker Model Runner is required only for blueprints that use local models. Docker Desktop supplies it on macOS and Windows; install the Docker Model Runner plugin separately on Linux when you need local model execution.
 
-## Install a Released Runtime
+## Install a released runtime
 
-From a checkout of the deployment repository:
+From a checkout of the deployment repository, inspect the installer before running it:
 
 ```bash
 cd mn-deploy
@@ -25,15 +26,19 @@ cd mn-deploy
 ./install.sh
 ```
 
-Or use the hosted installer:
+The installer runs non-interactively with its default selections. Use `--interactive` to confirm choices or `--version <release-tag>` to install a matching released component set.
+
+You can also use the hosted installer:
 
 ```bash
 curl -fsSL https://mirrorneuron.io/install.sh | bash
 ```
 
-The installer is non-interactive by default. Pass `--interactive` to review its choices or `--version <tag>` to install a matching released component set.
+Warning: piping an installer into a shell executes the downloaded script immediately. Prefer the checked-out installer when you need to inspect or customize the installation.
 
-Verify the CLI and start the services:
+## Verify the installation
+
+Confirm that the CLI is on your `PATH` and that the runtime can start:
 
 ```bash
 mn --help
@@ -41,25 +46,27 @@ mn runtime start
 mn runtime health
 ```
 
-The deployment scripts store local runtime state under `~/.mn` by default. The REST API listens on `http://localhost:54001/api/v1` unless `MN_API_PORT` is set.
+`mn --help` should display the MirrorNeuron CLI command groups. `mn runtime health` should complete without reporting a failed required runtime component.
 
-## Install From a Workspace Checkout
+The default local state directory is `~/.mn`. Unless you override `MN_API_PORT`, the REST API is available at `http://localhost:54001/api/v1`.
 
-From the workspace root, run the installer in local mode:
+## Install from a workspace checkout
+
+Use local mode when you need editable components from the workspace rather than released artifacts:
 
 ```bash
 cd mn-deploy
 ./install.sh --mode local
 ```
 
-This is the supported route for an editable local installation. After it completes:
+Then verify the local runtime:
 
 ```bash
-mn runtime start
+mn runtime status
 mn node list
 ```
 
-If you are changing the BEAM core directly, fetch and compile its dependencies from the core repository:
+If you change MirrorNeuron Core itself, compile it from its repository:
 
 ```bash
 cd MirrorNeuron
@@ -67,9 +74,9 @@ mix deps.get
 mix compile
 ```
 
-## Optional: Local Model Runtime
+## Prepare local models only when required
 
-For blueprints that use Docker Model Runner, inspect and install the requested model before launching the workflow:
+The selected blueprint determines its model requirement. Inspect or install a local Docker Model Runner model only when its preflight reports one:
 
 ```bash
 mn model list
@@ -77,36 +84,38 @@ mn model install gemma4:e2b
 mn model doctor gemma4:e2b
 ```
 
-Read [Model Runtime](model-runtime.md) for model selection and remote-provider configuration.
+`mn model doctor` checks model availability and compatibility. See [Model Runtime](model-runtime.md) for model configuration and remote-provider options.
 
-## Validate the Setup
+## Troubleshoot installation
 
-Validate a checked-in blueprint before submitting it:
+- **Symptom:** `mn: command not found`
+  - **Check:** `which mn`
+  - **Resolution:** rerun the installer, then open a new shell so its `PATH` changes apply.
+- **Symptom:** the runtime does not start
+  - **Check:** `docker info` and `mn runtime health`
+  - **Resolution:** start Docker, then rerun `mn runtime start`.
+- **Symptom:** blueprint validation reports a missing model
+  - **Check:** `mn model doctor <model-id>`
+  - **Resolution:** install the reported model, then repeat validation.
 
-```bash
-mn blueprint validate otterdesk-blueprints/generic_customer_service_voice_coworker
-```
+## Stop or remove the local runtime
 
-Validation checks the bundle and its declared requirements without starting a job. Continue with [Quickstart](quickstart.md) when it succeeds.
-
-## Uninstall
-
-Stop the local runtime first:
+Stop local services:
 
 ```bash
 mn runtime stop
 ```
 
-If you installed with the hosted installer, run its matching uninstall script:
+For an installation made with the hosted installer, use its matching uninstall script:
 
 ```bash
 curl -fsSL https://mirrorneuron.io/uninstall.sh | bash
 ```
 
-Only remove `~/.mn` manually when you intend to delete its local runtime configuration, run records, and model metadata.
+Warning: `~/.mn` can contain runtime configuration, run records, logs, and model metadata. Do not delete it until you have copied anything you need to retain.
 
-## Common Install Issues
+## Next steps
 
-- [Troubleshooting](troubleshooting.md)
-- [Testing](testing.md)
-- [Docker and OpenShell for Blueprints](docker_and_openshell_for_blueprints.md)
+- [Quickstart](quickstart.md) to validate and launch a model-backed local blueprint.
+- [Environment Variables](env_variables.md) to configure runtime state and listeners.
+- [Security Model](security.md) before using real data or a shared network.

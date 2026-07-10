@@ -1,0 +1,44 @@
+---
+title: "Why MirrorNeuron"
+description: "Decide whether MirrorNeuron fits a local or clustered AI workflow."
+---
+
+# Why MirrorNeuron
+
+Use this page if you are evaluating MirrorNeuron for a workflow that needs a local runtime, explicit execution controls, and observable job state. MirrorNeuron runs submitted workflow bundles through the `mn` CLI, API, and runtime services; it can operate on one machine or across runtime nodes.
+
+## What MirrorNeuron is for
+
+MirrorNeuron is a fit when you need to:
+
+- package reusable workflows as blueprints with manifests and payload files;
+- submit, inspect, pause, resume, cancel, and recover jobs through a local control surface;
+- keep runtime state, events, and run artifacts available to operators;
+- choose where work runs by using host-local execution, OpenShell sandboxes, or eligible runtime nodes; or
+- run local models through Docker Model Runner while retaining the option to configure external services deliberately.
+
+## What you should evaluate first
+
+Before adopting MirrorNeuron, answer these questions:
+
+| Question | Why it matters |
+| --- | --- |
+| Can you review every blueprint manifest and payload? | A blueprint can execute code, access declared files, and use declared environment variables or services. |
+| Do you need a local-only, sandboxed, or clustered execution path? | The trust boundary and operational setup differ for HostLocal, OpenShell, and multi-node execution. |
+| Do you have the model, GPU, service, and input requirements for the chosen blueprint? | Blueprint requirements are not universal; validation reports missing requirements before a run is submitted. |
+| Can operators protect Redis and runtime listeners? | Redis and runtime services hold control-plane state and must remain on trusted networks. |
+| Can the workload tolerate retries and review duplicated effects? | Workflow recovery does not make external side effects exactly-once. Workers should use idempotency where an external action can be repeated. |
+
+## What MirrorNeuron does not guarantee by itself
+
+- Local execution does not prevent data from leaving the machine when a blueprint calls an external model, API, browser, email, or other connector.
+- OpenShell is a stronger execution boundary than HostLocal, but operators must still review policies, uploads, and environment access.
+- A cluster is a shared trust domain. Nodes that share cluster credentials can participate in the runtime.
+- A successful blueprint run does not make its domain output authoritative. The checked-in finance, legal, medical, safety, and investment blueprints produce review material and require human judgment.
+
+## Next steps
+
+- [Installation](installation.md) for a local runtime.
+- [Quickstart](quickstart.md) for a model-backed local blueprint preflight and run.
+- [Core Concepts](core-concepts.md) for the workflow, blueprint, job, and runtime-node vocabulary.
+- [Security Model](security.md) before using real data or a shared network.

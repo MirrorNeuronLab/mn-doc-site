@@ -1,0 +1,69 @@
+---
+title: "Core Concepts"
+description: "Understand the MirrorNeuron workflow, blueprint, job, and runtime-node model."
+---
+
+# Core Concepts
+
+Use these terms consistently when you build, operate, or integrate with MirrorNeuron. This page explains the runtime model; use the CLI, API, and bundle references for exact syntax and fields.
+
+## The execution model
+
+```text
+Blueprint folder → validation → job submission → runtime scheduling → worker execution
+       ↓                ↓             ↓                 ↓                  ↓
+ manifest + payloads   requirements   job ID          events/state       artifacts
+```
+
+The control plane accepts jobs, records their state, and exposes inspection and control operations. The execution plane runs the workflow's agents on the selected execution environment. Redis stores durable runtime state; a run store records local artifacts for blueprint-oriented runs.
+
+## Terms
+
+| Term | Meaning |
+| --- | --- |
+| **workflow** | A declared graph of work that MirrorNeuron schedules and executes. |
+| **blueprint** | A reusable packaged workflow, usually a folder containing a manifest, configuration, payloads, and supporting material. |
+| **bundle** | The validated job package submitted to the runtime. |
+| **job** | One submitted workflow execution. The runtime identifies it with a job ID. |
+| **run** | The blueprint-oriented record of a launch and its local run-store outputs. A run ID identifies those artifacts. |
+| **agent** | An executable participant in a workflow with a declared role and runtime contract. |
+| **runtime node** | A machine or runtime member eligible to run work. A cluster has more than one runtime node. |
+| **event** | A recorded runtime occurrence, such as progress, failure, retry, or completion. |
+| **artifact** | A file or output associated with a run, for example `events.jsonl`, `result.json`, or a report. |
+| **control plane** | The scheduling, state, inspection, and control responsibilities of the runtime. |
+| **execution plane** | The workers and execution environments that perform workflow work. |
+
+## Execution boundaries
+
+The runner selected by a blueprint changes the risk boundary:
+
+- **HostLocal** runs worker code on the host. Use it only for code you trust.
+- **OpenShell** runs worker code in an OpenShell sandbox. Review its policy, uploads, and exposed services.
+- **Cluster execution** places eligible work on another runtime node. Treat the cluster as a shared trust domain.
+
+The runtime can also connect a workflow to models and external services. Those connections are blueprint-specific; review the manifest, payloads, and `pass_env` before launch.
+
+## What to inspect after a launch
+
+Use the job ID to inspect runtime state:
+
+```bash
+mn job status <job_id>
+mn job monitor <job_id>
+```
+
+Use the run ID to inspect blueprint artifacts:
+
+```bash
+mn blueprint logs <run_id>
+mn blueprint tail <run_id>
+```
+
+Replace `<job_id>` and `<run_id>` with the values printed by `mn blueprint run`.
+
+## Related pages
+
+- [Quickstart](quickstart.md)
+- [Runtime Architecture](runtime-architecture.md)
+- [Reliability Guide](reliability.md)
+- [Blueprint Standard](blueprint-standard.md)

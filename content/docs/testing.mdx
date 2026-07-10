@@ -5,7 +5,13 @@ description: A guide to testing strategies, layouts, and common commands for the
 
 # MirrorNeuron Testing Guide
 
-This workspace is intentionally multi-component. Tests should stay with the component they verify, while root orchestration stays in `mn-system-tests/test_all.py` for developer convenience.
+This workspace is intentionally multi-component. Tests should stay with the component they verify, while `mn-system-tests/test_all.py` provides cross-component orchestration.
+
+## Before you begin
+
+- Run commands from the workspace root unless a command says otherwise.
+- Create the workspace virtual environment described in [Contributing](contributing.md), then use `.venv/bin/python` so the command does not depend on shell activation.
+- Start Docker, Redis, or local services only for a test tier that requires them.
 
 ## Test Layout
 
@@ -31,50 +37,50 @@ Current component mapping:
 Fast local signal:
 
 ```bash
-python3 mn-system-tests/test_all.py --fast
+.venv/bin/python mn-system-tests/test_all.py --fast
 ```
 
 Component unit tests, including Node and core when dependencies are present:
 
 ```bash
-python3 mn-system-tests/test_all.py --unit
+.venv/bin/python mn-system-tests/test_all.py --unit
 ```
 
 Blueprint quick checks without external APIs:
 
 ```bash
-python3 mn-system-tests/test_all.py --blueprints
+.venv/bin/python mn-system-tests/test_all.py --blueprints
 ```
 
 Core runtime e2e, including stream/live backpressure:
 
 ```bash
-python3 mn-system-tests/test_all.py --runtime-e2e
+.venv/bin/python mn-system-tests/test_all.py --runtime-e2e
 ```
 
 Security checks in reporting mode:
 
 ```bash
-python3 mn-system-tests/test_all.py --security --skip-core --skip-node --skip-blueprints
+.venv/bin/python mn-system-tests/test_all.py --security --skip-core --skip-node --skip-blueprints
 ```
 
 Strict security mode fails on dependency-audit or secret-scan findings:
 
 ```bash
-python3 mn-system-tests/test_all.py --security --strict-security --skip-core --skip-node --skip-blueprints
+.venv/bin/python mn-system-tests/test_all.py --security --strict-security --skip-core --skip-node --skip-blueprints
 ```
 
 Live integration/e2e against running services:
 
 ```bash
-python3 mn-system-tests/test_all.py --integration --live
-python3 mn-system-tests/test_all.py --e2e --live
+.venv/bin/python mn-system-tests/test_all.py --integration --live
+.venv/bin/python mn-system-tests/test_all.py --e2e --live
 ```
 
 Full default non-live suite:
 
 ```bash
-python3 mn-system-tests/test_all.py
+.venv/bin/python mn-system-tests/test_all.py
 ```
 
 ## Manual Live E2E
@@ -97,13 +103,14 @@ MN_GRPC_TARGET=localhost:55200 \
 mn-api
 ```
 
-Then run:
+Return to the workspace root, then run:
 
 ```bash
+cd ..
 MN_GRPC_TARGET=localhost:55200 \
 MN_API_BASE_URL=http://localhost:4001/api/v1 \
 RUN_MN_SYSTEM_TESTS=1 \
-python3 -m pytest mn-system-tests/integration mn-system-tests/e2e
+.venv/bin/python -m pytest mn-system-tests/integration mn-system-tests/e2e
 ```
 
 ## Redis HA Tests
@@ -122,9 +129,9 @@ Two-box Docker test:
 ```bash
 cd MirrorNeuron
 bash scripts/test_redis_sentinel_two_box_ha.sh \
-  --remote-host 192.168.4.173 \
-  --local-ip 192.168.4.25 \
-  --remote-ip 192.168.4.173
+  --remote-host <remote-host> \
+  --local-ip <local-host> \
+  --remote-ip <remote-host>
 ```
 
 Expected success markers:
@@ -139,10 +146,10 @@ The two-box test starts Redis and Sentinel on both machines, writes MirrorNeuron
 Run the same path through the workspace test runner:
 
 ```bash
-python3 mn-system-tests/test_all.py --redis-ha \
-  --redis-ha-remote-host 192.168.4.173 \
-  --redis-ha-local-ip 192.168.4.25 \
-  --redis-ha-remote-ip 192.168.4.173
+.venv/bin/python mn-system-tests/test_all.py --redis-ha \
+  --redis-ha-remote-host <remote-host> \
+  --redis-ha-local-ip <local-host> \
+  --redis-ha-remote-ip <remote-host>
 ```
 
 Expected output:
@@ -207,9 +214,6 @@ Useful test isolation vars:
 
 Live tests are opt-in. If `RUN_MN_SYSTEM_TESTS=1` is not set, `mn-system-tests` marks integration/e2e tests skipped.
 
-## What To Add Next
+## Test-selection rule
 
-- Move flat Python tests into `tests/unit/` first, then add `tests/integration/` for API/CLI behavior that exercises the SDK boundary.
-- Convert useful `MirrorNeuron/tests/regression/*.script` repros into ExUnit tests where possible.
-- Add Web UI visual/layout regression tests when Playwright is introduced.
-- Add a real secret scanner such as `gitleaks` or `detect-secrets` once the team chooses a tool.
+For a cross-component regression, prefer an injected contract test before adding a live test. Add live integration or end-to-end coverage only when the behavior depends on a running service, Docker, Redis, network topology, or another external capability that an injected test cannot represent.

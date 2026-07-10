@@ -7,6 +7,15 @@ description: "Reference for the FastAPI gateway over the MirrorNeuron runtime."
 
 `mn-api` is the FastAPI gateway over the Python SDK and the MirrorNeuron gRPC runtime. The CLI, web UI, desktop clients, and automation clients use it for job, run, blueprint, model, service, schedule, resource, and cluster operations.
 
+This is a reference page. Use [Quickstart](quickstart.md) to learn the launch flow and the running service's OpenAPI schema for the precise versioned request and response shapes.
+
+## Before you integrate
+
+- Start the runtime and verify it with `mn runtime health`.
+- Keep the API listener on a trusted network.
+- Use `MN_API_TOKEN` when API authentication is enabled.
+- Treat API launch endpoints as execution-capable operations; validate and review bundles before submitting them.
+
 The default local base URL is:
 
 ```text
@@ -69,8 +78,10 @@ curl -s http://localhost:54001/api/v1/blueprints
 For normal local execution, prefer the CLI because it packages local blueprint folders and presents runtime output:
 
 ```bash
-mn blueprint run --folder otterdesk-blueprints/generic_customer_service_voice_coworker
+mn blueprint run --folder otterdesk-blueprints/<blueprint_folder>
 ```
+
+Replace `<blueprint_folder>` with a validated local blueprint folder. Verify a launch by querying the returned job ID through `GET /jobs/{job_id}` or by running `mn job status <job_id>`.
 
 ## Authentication and Security
 

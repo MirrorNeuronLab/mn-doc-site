@@ -5,14 +5,26 @@ description: "Install, run, operate, and extend MirrorNeuron."
 
 # MirrorNeuron Documentation
 
-MirrorNeuron is a local-first runtime for durable, message-driven AI workflows. It can run on one machine or across a small cluster, and it provides a CLI, REST API, local model support, and a blueprint runtime.
+MirrorNeuron is a runtime for durable, message-driven AI workflows. It can run on one machine or across runtime nodes, and it provides an `mn` CLI, a REST API, local model integration, and a blueprint runtime.
+
+Use MirrorNeuron when you need explicit workflow execution, inspection, and local operational control. It does not make worker code safe by default or keep data local when a blueprint is configured to call an external service.
 
 ## Start Here
 
-1. [Installation](installation.md): install the local runtime and its dependencies.
-2. [Quickstart](quickstart.md): validate and submit a checked-in blueprint.
-3. [Examples](examples.md): choose a blueprint that matches the workflow you want to explore.
+1. [Why MirrorNeuron](why-mirrorneuron.md): decide whether the runtime fits your workload and risk model.
+2. [Installation](installation.md): install the local runtime and verify its services.
+3. [Quickstart](quickstart.md): prepare, validate, submit, and inspect a local blueprint.
 4. [Security Model](security.md): understand the trust boundaries before running third-party or production workloads.
+
+## Choose Your Path
+
+| You are… | Start here | Then |
+| --- | --- | --- |
+| Evaluating MirrorNeuron | [Why MirrorNeuron](why-mirrorneuron.md) | [Core Concepts](core-concepts.md), [Quickstart](quickstart.md), [Security Model](security.md) |
+| Running a local workflow | [Installation](installation.md) | [Quickstart](quickstart.md), [Examples](examples.md), [Troubleshooting](troubleshooting.md) |
+| Authoring a blueprint | [Core Concepts](core-concepts.md) | [Blueprint Standard](blueprint-standard.md), [Blueprints and Skills](blueprints-and-skills.md), [Testing](testing.md) |
+| Operating a runtime | [Services and Health Checks](services-and-health-checks.md) | [Monitor Guide](monitor.md), [Reliability Guide](reliability.md), [Troubleshooting](troubleshooting.md) |
+| Contributing | [Component Guide](component-guide.md) | [Runtime Architecture](runtime-architecture.md), [Testing](testing.md), [Contributing](contributing.md) |
 
 ## Documentation Map
 
@@ -20,6 +32,8 @@ MirrorNeuron is a local-first runtime for durable, message-driven AI workflows. 
 | --- | --- |
 | [Installation](installation.md) | You need the supported installer, local-development setup, or uninstall steps. |
 | [Quickstart](quickstart.md) | You want to validate a blueprint, start the runtime, and inspect a run. |
+| [Why MirrorNeuron](why-mirrorneuron.md) | You are evaluating fit, boundaries, and non-guarantees. |
+| [Core Concepts](core-concepts.md) | You need the shared workflow, blueprint, job, and runtime-node vocabulary. |
 | [Examples](examples.md) | You want to explore one of the checked-in OtterDesk blueprints. |
 | [CLI Reference](cli.md) | You need exact `mn` command groups and options. |
 | [API Reference](api.md) | You are integrating with the FastAPI gateway. |
@@ -37,22 +51,11 @@ MirrorNeuron is a local-first runtime for durable, message-driven AI workflows. 
 | [Testing](testing.md) | You need the current test matrix and commands. |
 | [Troubleshooting](troubleshooting.md) | You are diagnosing local runtime, Redis, OpenShell, model, or cluster issues. |
 
-## Safe First Run
+## First safe workflow
 
-Before you run a workflow, inspect its `manifest.json`, payloads, model requirements, and `pass_env` entries. Then validate it locally:
+The checked-in blueprints have different hardware, model, input, and service requirements. Start with the [Quickstart](quickstart.md), which uses a review-only sample configuration and makes the model preflight explicit. Before any launch, inspect the blueprint's `manifest.json`, payloads, model requirements, and `pass_env` entries.
 
-```bash
-mn blueprint validate otterdesk-blueprints/generic_customer_service_voice_coworker
-```
-
-Validation does not submit a job. When the blueprint's required services and inputs are ready, start the runtime and run it:
-
-```bash
-mn runtime start
-mn blueprint run --folder otterdesk-blueprints/generic_customer_service_voice_coworker
-```
-
-Use [Quickstart](quickstart.md) for the full flow and [Security Model](security.md) before exposing a runtime beyond your trusted local network.
+Use [Security Model](security.md) before exposing a runtime beyond your trusted local network or supplying real data.
 
 ## Contributor Path
 

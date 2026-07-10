@@ -1,101 +1,73 @@
 ---
-title: "Monitor A Job"
-description: "Documentation for Monitor A Job."
+title: "Monitor and Control a Job"
+description: "Inspect MirrorNeuron job state, events, and blueprint run artifacts."
 ---
 
-# Monitor A Job
+# Monitor and Control a Job
 
-Use `mn job monitor` when you already have a job id and want to stream its events.
+Use this guide after a workflow has been submitted and you have its job ID. You will inspect runtime state, inspect blueprint artifacts, cancel work safely, and collect evidence for troubleshooting.
 
-## Start Monitoring
+## Before you begin
 
-```bash
-mn job monitor <job_id>
-```
+- Know the `<job_id>` returned when the workflow was submitted.
+- Keep the `<run_id>` when the launch produced one; it identifies blueprint run-store records.
+- Run `mn runtime health` first if job commands cannot reach the runtime.
 
-Expected output includes job events as they arrive.
+## Inspect a job
 
-If you do not know the job id:
+List recent jobs when you do not know the ID:
 
 ```bash
 mn job list
 ```
 
-Expected output includes:
-
-```text
-Job ID
-```
-
-## Fetch Results
-
-```bash
-mn job result <job_id>
-```
-
-This fetches final and progressive results for a job when the bundle emits them.
-
-## Inspect Status
+Read the current state and stream events:
 
 ```bash
 mn job status <job_id>
+mn job monitor <job_id>
 ```
 
-Expected output includes:
+Replace `<job_id>` with the submitted job identifier. A terminal state is `completed`, `failed`, or `cancelled`. It means runtime execution reached an end state; inspect artifacts and warnings before treating a domain result as correct.
 
-```json
-{
-  "status": "running"
-}
+## Inspect blueprint artifacts
+
+When you have a run ID, inspect its run-store records separately from job state:
+
+```bash
+mn blueprint logs <run_id>
+mn blueprint tail <run_id>
+mn blueprint export <run_id> --format markdown
 ```
 
-Terminal statuses are:
+Run records are stored under `~/.mn/runs/<run_id>/` by default. Preserve events, logs, output artifacts, and timestamps when reporting a failure.
 
-- `completed`
-- `failed`
-- `cancelled`
-
-## Cancel A Job
+## Cancel work
 
 ```bash
 mn job cancel <job_id>
+mn job status <job_id>
 ```
 
-Expected output:
+Warning: cancellation stops runtime work but cannot reverse an external action already performed by a worker. Review a blueprint's output skills, adapters, and idempotency behavior before launching side-effecting workflows.
 
-```text
-Job cancelled. Status: cancelled
-```
+## Diagnose a stuck or failed job
 
-## System Overview
-
-For a broader view of nodes and jobs:
+Collect read-only evidence first:
 
 ```bash
+mn runtime health
+mn runtime status
 mn node list
-mn runtime metrics
+mn job status <job_id>
+mn job dead-letters <job_id>
 ```
 
-Expected `mn node list` output includes:
+Use [Troubleshooting](troubleshooting.md) for Redis, OpenShell, model, API, and cluster diagnosis. Include the job ID, run ID, timestamp, exact error text, and sanitized relevant configuration when escalating an issue.
 
-```json
-{
-  "nodes": [],
-  "jobs": []
-}
-```
-
-In a cluster, `nodes` contains connected runtime nodes and executor pool stats.
-
-## Operational Notes
-
-- Closing your terminal does not necessarily cancel a submitted job.
-- Use `mn job cancel <job_id>` to stop service workflows.
-- Use `mn job dead-letters <job_id>` when messages fail to route or process.
-- Run `mn job clear` only when you are ready to remove terminal job records.
-
-## Related Pages
+## Related pages
 
 - [CLI Reference](cli.md)
 - [API Reference](api.md)
+- [Reliability Guide](reliability.md)
 - [Troubleshooting](troubleshooting.md)

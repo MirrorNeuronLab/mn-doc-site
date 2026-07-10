@@ -1,69 +1,78 @@
 ---
-title: "Blueprint Examples"
-description: "Choose a checked-in OtterDesk blueprint and run it safely."
+title: "Choose a Blueprint"
+description: "Select a checked-in OtterDesk blueprint by task, data sensitivity, and runtime requirements."
 ---
 
-# Choose a Blueprint Example
+# Choose a Blueprint
 
-The checked-in `otterdesk-blueprints` directory contains task-focused workflows. They are not interchangeable smoke tests: each has its own inputs, model needs, services, and safety limits. Read the blueprint's `README.md` and `SPEC.md` before launching it.
+Use this guide after you have installed MirrorNeuron and understand the [Core Concepts](core-concepts.md). Each checked-in blueprint has its own input, model, service, and safety requirements; none is a universal installation test.
 
-## Available Local Examples
+## Before you begin
 
-| Blueprint folder | Purpose |
-| --- | --- |
-| `drug_discovery_research_assistant` | Produces evidence-backed early drug-discovery research and candidate summaries. |
-| `financial_advisor` | Prepares review-only household-finance, tax, and portfolio reports from supplied documents. |
-| `generic_customer_service_voice_coworker` | Starts a local voice customer-service experience with editable business knowledge. |
-| `medical_deid_record_intake_assistant` | Detects PII/PHI risks and prepares a review-gated de-identification packet. |
-| `personal_legal_assistant` | Reviews invoices, bills, and contracts against supplied legal-playbook context. |
-| `property_deal_research_assistant` | Researches and compares real-estate opportunities using supplied constraints. |
-| `safety_video_analyser` | Analyzes local workplace footage and writes a structured safety report. |
-| `vc_assistant` | Produces reviewable startup-screening reports from supplied documents. |
-| `video_watch_assistant` | Monitors an approved local or mapped video stream and writes observation artifacts. |
+- Run `mn runtime health` and resolve failed required components.
+- Read the blueprint folder's `README.md`, `SPEC.md`, `manifest.json`, and default configuration.
+- Confirm that you can safely provide the required inputs and operate the required local or external services.
+- Start with sample, mock, quick-test, or dry-run settings when the blueprint provides them.
 
-## Recommended First Steps
+## Local blueprint catalog
 
-Start with the blueprint whose input domain you understand. Validate the local folder before trying a full run:
+| Blueprint folder | Best for | Important boundary |
+| --- | --- | --- |
+| `drug_discovery_research_assistant` | Early discovery research and candidate-review packets. | Review-only scientific research; use approved inputs and human review. |
+| `financial_advisor` | Household-finance, tax, and portfolio review packets. | It does not file returns, trade, move money, or approve actions. |
+| `generic_customer_service_voice_coworker` | A local voice customer-service experience. | Requires an eligible NVIDIA GPU and the declared ASR, TTS, and model services. |
+| `medical_deid_record_intake_assistant` | PHI/PII detection and de-identification review. | Keep real health records local and require privacy-officer review before release. |
+| `personal_legal_assistant` | Invoice, bill, and contract review packets. | It does not provide legal advice, sign documents, or send payment instructions. |
+| `property_deal_research_assistant` | Real-estate opportunity research and comparison. | Outputs are review material, not acquisition decisions. |
+| `safety_video_analyser` | Batch analysis of local workplace video. | Requires NVIDIA CUDA placement for visual analysis; reports do not certify safety. |
+| `vc_assistant` | Startup-document research and score-only reports. | It does not make investment decisions; public research can encounter access limits. |
+| `video_watch_assistant` | Monitoring an approved local or mapped video stream. | Requires NVIDIA CUDA placement and a reviewed stream/alert configuration. |
+
+## Validate before you run
+
+From the workspace root, replace `<blueprint_folder>` with a folder in the table:
 
 ```bash
 mn blueprint validate otterdesk-blueprints/<blueprint_folder>
 ```
 
-Then start the runtime and submit it:
+Verification: validation must complete successfully. A missing-model, missing-service, or input-contract error identifies a prerequisite to resolve before launch.
+
+## Run a local folder
+
+Start the runtime, then submit the validated folder:
 
 ```bash
 mn runtime start
 mn blueprint run --folder otterdesk-blueprints/<blueprint_folder>
 ```
 
-Inspect the returned job ID and run ID with:
+Record the job ID and run ID printed by the CLI. Verify the launch with:
 
 ```bash
 mn job status <job_id>
 mn blueprint logs <run_id>
 ```
 
-## Catalog Runs
+## Run a configured catalog blueprint
 
-When your runtime has a catalog configured, list its IDs with:
+The runtime can also use a configured Git or local blueprint catalog. List the available IDs before launching one:
 
 ```bash
 mn blueprint list
-```
-
-Then run one by ID:
-
-```bash
 mn blueprint run <blueprint_id>
 ```
 
-The catalog can be a Git repository or a local directory; see [Environment Variables](env_variables.md) for `MN_BLUEPRINT_SOURCE`, `MN_BLUEPRINT_REPO`, and `MN_BLUEPRINT_LOCAL`.
+`MN_BLUEPRINT_SOURCE`, `MN_BLUEPRINT_REPO`, and `MN_BLUEPRINT_LOCAL` determine the catalog source. See [Environment Variables](env_variables.md) for the exact configuration contract.
 
-## Safety Notes
+## Safety and cleanup
 
-- Review `manifest.json`, payloads, and `pass_env` before granting access to files, networks, or secrets.
-- Use sample, mock, quick-test, or dry-run settings when the blueprint offers them.
-- Treat finance, tax, legal, medical, safety, and model outputs as review material, not autonomous decisions.
-- Cancel long-running or service workflows when you are done: `mn job cancel <job_id>`.
+Warning: a blueprint may execute code, read local files, use selected environment variables, call model providers, or start services. Review its `manifest.json`, payloads, runner, and `pass_env` before launch.
 
-Related pages: [Quickstart](quickstart.md), [Blueprints and Skills](blueprints-and-skills.md), [Security Model](security.md), and [Troubleshooting](troubleshooting.md).
+Cancel a service or unfinished workflow when you finish evaluating it:
+
+```bash
+mn job cancel <job_id>
+```
+
+Related pages: [Quickstart](quickstart.md), [Blueprint Standard](blueprint-standard.md), [Model Runtime](model-runtime.md), and [Security Model](security.md).

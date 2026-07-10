@@ -5,7 +5,14 @@ description: Overview of security considerations, trust boundaries, and safe pra
 
 # Security Model
 
-MirrorNeuron is powerful because it can run workflows close to real data, local tools, worker code, model providers, and external services. That also means every operator should understand what the runtime can access and where trust boundaries sit.
+Use this page before you run a third-party blueprint, handle sensitive data, expose a listener, or join a runtime node to a cluster. MirrorNeuron can execute code, read declared files, use declared environment variables, and call configured services; the operator is responsible for selecting and protecting those boundaries.
+
+## Before you begin
+
+- Know which runner each worker uses: HostLocal or OpenShell.
+- Review the blueprint `manifest.json`, payloads, and `pass_env` entries.
+- Keep Redis, API, gRPC, and artifact-sharing interfaces on a trusted network.
+- Do not use real secrets or regulated data for an unreviewed blueprint.
 
 ## What MirrorNeuron Can Access
 
@@ -56,9 +63,8 @@ Use these defaults for local development:
 
 ```bash
 export MN_REDIS_URL="redis://127.0.0.1:6379/0"
-export MN_API_PORT="4000"
-export MN_GRPC_PORT="50051"
-export MN_EXECUTOR_MAX_CONCURRENCY="4"
+export MN_API_PORT="54001"
+export MN_GRPC_PORT="55051"
 ```
 
 Recommended habits:

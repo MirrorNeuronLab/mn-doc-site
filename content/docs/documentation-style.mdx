@@ -1,45 +1,61 @@
 ---
 title: "Documentation Style"
-description: "Conventions for maintaining the MirrorNeuron documentation site."
+description: "Author and review implementation-backed MirrorNeuron documentation."
 ---
 
 # Documentation Style
 
-Write pages that are clear, practical, and backed by the implementation currently in the workspace.
+Use this guide when you create or substantially update a MirrorNeuron documentation page. Documentation is part of the product: it must help a named reader reach a safe, observable outcome without guessing.
 
-## Page Types
+## Write a brief before drafting
 
-| Type | Purpose |
+Record the following in the issue, pull request, or page draft:
+
+| Item | What to define |
 | --- | --- |
-| Tutorial | Walk a reader through a complete, safe first path. |
-| How-to | Solve one operational task. |
-| Reference | Give exact commands, configuration, or API facts. |
-| Explanation | Describe architecture and tradeoffs. |
+| Reader | Evaluator, application developer, blueprint author, operator, integrator, contributor, or maintainer. |
+| Outcome | One observable result the reader can achieve. |
+| Page type | Tutorial, how-to, reference, explanation, troubleshooting, migration, or decision record. |
+| Scope | The exact command, API, component, workflow, or behavior covered. |
+| Out of scope | Nearby topics intentionally excluded. |
+| Sources of truth | Code, CLI help, tests, schemas, generated API definitions, or release artifacts used to verify claims. |
+| Validation | The documentation build and the smallest relevant product command or test. |
 
-## Commands and Examples
+## Keep page types distinct
 
-- Use fenced `bash` blocks for commands and state the working directory when it matters.
-- Use blueprint folders that exist in `otterdesk-blueprints`; never publish synthetic or deleted example IDs.
-- Show a stable success marker only when it is verified. Otherwise say what the reader should inspect.
-- Use placeholders such as `<blueprint_id>` when the command depends on local catalog configuration.
+| Type | Reader need | Required content |
+| --- | --- | --- |
+| Tutorial | Learn a complete first experience. | Prerequisites, ordered steps, verification, cleanup, and next steps. |
+| How-to | Complete one operational task. | Assumptions, procedure, verification, rollback, and symptom-led help. |
+| Reference | Look up exact facts. | Declared scope, exact syntax or fields, defaults, side effects, errors, and small examples. |
+| Explanation | Understand a design choice. | Problem, mental model, boundaries, guarantees, non-guarantees, failures, and tradeoffs. |
+| Troubleshooting | Recover from an observable failure. | Symptom, likely causes, read-only diagnostics, resolution, verification, and escalation evidence. |
 
-For example:
+Do not turn a reference page into a tutorial or hide operational procedures inside architecture prose. Link to the canonical page instead.
 
-```bash
-mn blueprint validate otterdesk-blueprints/<blueprint_folder>
-```
+## Commands and examples
 
-## Accuracy and Safety
+- Use fenced `bash`, `json`, `python`, `text`, or other appropriate code blocks.
+- State the working directory when it matters.
+- Use only commands verified against CLI help, tests, schemas, or a representative runtime.
+- Use a checked-in example only when its requirements and safety boundaries are documented.
+- Use placeholders such as `<job_id>` and define them immediately after the block.
+- Show a stable success marker only when it is verified. Otherwise tell the reader which command exit status or observable state proves success.
+- Include cleanup for jobs, services, ports, generated files, or persistent state created by the procedure.
 
-- Update documentation in the same change as user-visible behavior, commands, ports, configuration names, or API routes.
-- Call out security, data-loss, network-exposure, and irreversible-cleanup implications.
-- Do not publish agent instructions, release procedures, templates, obsolete diagrams, or references to removed components.
-- Link only to pages that exist in this documentation site.
+## Accuracy and safety
 
-## Review Checklist
+- Use the implementation as the source of truth. Never infer a command, default, port, guarantee, or compatibility policy.
+- Keep one canonical page for durable facts such as CLI syntax, API contracts, environment variables, and manifest fields.
+- State what a feature does not guarantee, especially for retries, external side effects, local execution, sandboxing, privacy, and clustering.
+- Warn before actions that delete data, expose listeners, pass secrets into worker code, execute unreviewed bundles, or join a cluster trust domain.
+- Do not publish agent instructions, release procedures, templates, obsolete diagrams, or references to removed components as product documentation.
 
-- [ ] The page has one clear purpose.
-- [ ] Commands reflect the current CLI or component implementation.
-- [ ] Examples use existing blueprint folders or explicit placeholders.
-- [ ] Local links resolve.
-- [ ] Security implications are described where relevant.
+## Review checklist
+
+- [ ] The title, reader, outcome, and primary page type are clear in the opening screen.
+- [ ] Important claims cite or were checked against an authoritative implementation source.
+- [ ] Commands, links, examples, and stated defaults were validated.
+- [ ] Each state-changing procedure includes verification and applicable cleanup or rollback.
+- [ ] Security, data movement, secrets, network exposure, and non-guarantees are visible where relevant.
+- [ ] Related pages point to the next useful action.
