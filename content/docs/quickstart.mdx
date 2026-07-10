@@ -1,144 +1,99 @@
 ---
 title: "Quickstart"
-description: "Documentation for Quickstart Your First Workflow."
+description: "Validate, run, and inspect a local MirrorNeuron blueprint."
 ---
 
 # Run Your First Workflow
 
-This tutorial takes you from a fresh checkout to a validated workflow and a submitted job.
-
-## What You Will Do
-
-By the end of this tutorial, you will have launched a complex AI workflow with a single command. The runtime automatically resolves the required configuration. Once the workflow starts, it depends only on local resources, including locally available AI models, and can continue running without internet connectivity.
+This guide validates a checked-in blueprint, starts the local runtime, submits a workflow, and shows where to inspect the result.
 
 ## Before You Start
 
-You need:
+You need Docker and the `mn` CLI. Complete [Installation](installation.md) first. Blueprint requirements vary: a blueprint may need input files, model access, OpenShell, or other local services. Review its `README.md`, `manifest.json`, and `pass_env` before running it.
 
-- A PC with at least 16 GB RAM running macOS, Linux (include Windows with WSL2)
-- [Docker](https://www.docker.com/products/docker-desktop) installed and running
+## 1. Validate a Local Blueprint
 
-If these are not ready yet, follow [Installation](installation.md) first.
-
-## Step 1: Install the Runtime
+From the workspace root:
 
 ```bash
-curl -fsSL https://mirrorneuron.io/install.sh | bash
+mn blueprint validate otterdesk-blueprints/generic_customer_service_voice_coworker
 ```
 
-This installs the `mn` CLI and the runtime, then starts the runtime automatically. If the runtime is already installed, you can start it with:
+Expected output includes a successful validation result. This preflight does not submit a job.
 
-```bash
-mn runtime start
-```
-
-This step checks the local manifest and input contract without submitting a runtime job.
-
-## Step 2: Start a Job from a Blueprint
-
-```bash
-mn blueprint run vc_assistant
-```
-
-This blueprint runs a simple workflow that acts like a VC scout. It analyzes a set of startups using web search, numerical tools, and a local LLM model to quickly screen their potential value. The evaluation method follows common VC practices.
-
-The CLI prints the job ID and streams live events while the job runs. You can close the window; the job continues running in the background. You can check the job status with:
-
-```bash
-mn job monitor <job_id>
-```
-
-## Step 3: Check the Result
-
-The job typically takes more than 10 minutes to run, depending on your PC. Once it completes, you can find the results in this local folder:
-
-```bash
-~/Downloads/vc_assistant
-```
-
-## Step 4 (Optional): Run a Job in a Cluster
-
-By default, the runtime runs on your local machine. The runtime is smart enough to choose the best available model based on your local resources. For most users, this is a small LLM model that is suitable for demos but not for production.
-
-If you have more than one machine, you can run the job in a cluster. If one node is powerful enough, such as a DGX Spark or an Apple Studio with more than 48 GB of integrated or dedicated GPU memory, you can run the job with a much more powerful model and get better results.
-
-On the first machine:
+## 2. Start and Check the Runtime
 
 ```bash
 mn runtime start
+mn runtime health
+mn node list
 ```
 
-On the second machine:
+`mn runtime health` confirms local runtime dependencies; `mn node list` shows the local node or any configured cluster nodes.
+
+## 3. Submit the Workflow
 
 ```bash
-mn runtime start --worker-node 
+mn blueprint run --folder otterdesk-blueprints/generic_customer_service_voice_coworker
 ```
 
-Then copy the output from the second machine into the console on the first machine. Running that command connects the two nodes as a cluster. For example:
+The command prints a job ID and may print a run ID. Keep both values: the job ID is for runtime control and the run ID identifies the local run store.
 
-```bash
-mn node join <2nd box IP> --token <generated token>
-```
-
-If you have more than two nodes, you can run the same command to connect all of them.
-
-Then run the same job on the first machine with:
-
-```bash
-mn blueprint run vc_assistant
-```
-
-The runtime automatically runs the job in cluster mode.
-
-## Step 5: Inspect Jobs
+## 4. Inspect the Job
 
 ```bash
 mn job list
-```
-
-Expected output:
-
-```text
-Job ID
-```
-
-Check a single job:
-
-```bash
+mn job status <job_id>
 mn job monitor <job_id>
 ```
 
-Expected output includes:
+Use `mn job cancel <job_id>` to stop a running workflow. For blueprint-run artifacts and logs, use:
 
-```json
-{
-  "status": "completed"
-}
+```bash
+mn blueprint logs <run_id>
+mn blueprint tail <run_id>
+mn blueprint export <run_id> --format markdown
 ```
+
+By default, run records are stored under `~/.mn/runs/<run_id>/`. Set `MN_HOME` or `MN_RUNS_ROOT` to use another location.
+
+## 5. Explore Catalog Blueprints
+
+List catalog blueprints configured for the runtime:
+
+```bash
+mn blueprint list
+```
+
+Run a catalog blueprint by its ID only after reviewing its inputs and required services:
+
+```bash
+mn blueprint run <blueprint_id>
+```
+
+For local checkout examples, use [Examples](examples.md).
 
 ## Troubleshooting
 
-### `mn: command not found`
-
-Install the CLI or activate the project virtual environment. Then verify:
+If `mn` is unavailable, confirm it is on your `PATH`:
 
 ```bash
 which mn
 mn --help
 ```
 
-Try reinstalling the runtime if the `mn` command is still not found.
-
-### gRPC Connection Refused
-
-Restart the runtime:
+If the runtime is unreachable:
 
 ```bash
-mn runtime stop
 mn runtime start
+mn runtime health
 ```
 
-## Next Steps
+For model preflight failures, inspect the requested model:
 
-- [CLI Reference](cli.md)
-- [More Troubleshooting](troubleshooting.md)
+```bash
+mn model list
+mn model doctor gemma4:e2b
+```
+
+Continue with [Troubleshooting](troubleshooting.md) for Redis, OpenShell, Docker, and cluster failures.

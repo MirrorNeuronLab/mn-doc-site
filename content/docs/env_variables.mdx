@@ -31,7 +31,7 @@ Example:
 MN_RUN_DETACH_LOG_SECONDS=10 \
 MN_RUN_LOG_LEVEL=DEBUG \
 MN_RUN_EVENT_LOG_MAX_BYTES=5242880 \
-mn blueprint run stream_backpressure_simulation
+mn blueprint run <blueprint_id>
 ```
 
 ## CLI and SDK connectivity
@@ -234,20 +234,6 @@ LLM-enabled blueprints use `MN_LLM_*` settings as the primary contract. Legacy `
 | `MN_SLACK_API_BASE_URL` | Slack API default | Slack API base URL override for email delivery skills. |
 | `SLACK_BOT_TOKEN` | unset | Slack bot token fallback used by Slack-related skills and the finance Slack monitor blueprint. |
 | `SLACK_DEFAULT_CHANNEL` | `#claw` in finance Slack monitor | Slack channel fallback used by Slack-related skills and the finance Slack monitor blueprint. |
-
-## Business email blueprint variables
-
-These are specific to `business_customer_lifecycle_email_copilot`.
-
-| Variable | Default | Usage |
-| --- | --- | --- |
-| `SYNAPTIC_DB_CONNECTION` | unset | External database connection string. |
-| `SYNAPTIC_DB_PATH` | blueprint default or required by worker | SQLite database path override. |
-| `SYNAPTIC_QUICK_TEST_MODE` | disabled | Enables reduced quick-test behavior. |
-| `SYNAPTIC_EMAIL_DRY_RUN` | disabled | Prevents real email delivery when enabled. |
-| `SYNAPTIC_EMAIL_DELIVERY_MODE` | blueprint-specific | Controls email delivery mode. |
-| `SYNAPTIC_TEST_EMAIL_TO` | unset | Test recipient override. |
-| `SYNAPTIC_EMIT_CYCLE_TRIGGER` | `true` | Set to `false` to suppress cycle trigger emission. |
 
 ## Runtime-injected worker variables
 

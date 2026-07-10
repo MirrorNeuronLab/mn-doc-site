@@ -94,27 +94,10 @@ class MarketingResearchFlow:
         return self.agents.reviewer(request)
 ```
 
-Generate the checked-in Python SDK research pipeline:
+After compiling a decorated workflow into a bundle, validate the generated folder:
 
 ```bash
-cd mn-blueprints/python_sdk_research_pipeline
-python3 -m pip install -e ../../mn-skills/blueprint_support_skill
-python -m mn_blueprint_support.python_workflow_bundle_cli \
-  --blueprint-dir . \
-  --quick-test \
-  --output-dir /tmp/mn-python-research
-```
-
-Expected output:
-
-```text
-bundle generated
-```
-
-Validate:
-
-```bash
-mn blueprint validate /tmp/mn-python-research
+mn blueprint validate /path/to/generated-bundle
 ```
 
 Expected output:
@@ -218,7 +201,7 @@ client.dispatch_schedule("schedule-id", payload={"manual": True})
 client.emit_trigger_event("file_uploaded", payload={"path": "/data/eval.jsonl"})
 ```
 
-See [Nomad-Inspired Runtime Features](nomard-inspired-runtime.mdx), [Services and Health Checks](services-and-health-checks.mdx), [Resources and Devices](resources-and-devices.mdx), [Deployments](deployments.mdx), and [Schedules and Events](schedules-and-events.mdx).
+See [Nomad-Inspired Runtime Features](nomad-inspired-runtime.mdx), [Services and Health Checks](services-and-health-checks.mdx), [Resources and Devices](resources-and-devices.mdx), [Deployments](deployments.mdx), and [Schedules and Events](schedules-and-events.mdx).
 
 ## Packaging Rules
 
@@ -245,10 +228,9 @@ Expected output:
 12 passed
 ```
 
-For the checked-in source-mode examples, repeat the same
-`mn_blueprint_support.python_workflow_bundle_cli` command in
-`mn-blueprints/python_sdk_research_pipeline` and
-`mn-blueprints/python_sdk_research_service`.
+For a source-mode blueprint, keep the generated bundle out of the repository,
+validate it locally, and include only the source workflow and declared payloads
+in version control.
 
 ## Related Pages
 
@@ -256,5 +238,3 @@ For the checked-in source-mode examples, repeat the same
 - [Job Bundle Format](bundle.mdx)
 - [Security Model](security.mdx)
 - [Testing](testing.mdx)
----
-unlink(content/docs/md-legacy/SDK.md)

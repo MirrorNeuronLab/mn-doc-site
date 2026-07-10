@@ -1,61 +1,62 @@
 ---
 title: "MirrorNeuron Documentation"
-description: "Documentation for MirrorNeuron local AI runtime."
+description: "Install, run, operate, and extend MirrorNeuron."
 ---
 
 # MirrorNeuron Documentation
 
-MirrorNeuron is a durable runtime and control plane for adaptive, message-driven AI workflows built for local and edge environments. It is designed for applications where low latency, privacy, reliability, or offline operation are critical.
-
-The documentation has two goals:
-
-- A new user should install, configure, run, and safely test MirrorNeuron in under 10 minutes.
-- A new contributor should understand the architecture well enough to make a small pull request in under one hour.
+MirrorNeuron is a local-first runtime for durable, message-driven AI workflows. It can run on one machine or across a small cluster, and it provides a CLI, REST API, local model support, and a blueprint runtime.
 
 ## Start Here
 
-1. [Quickstart](quickstart.md): validate and run your first workflow.
-2. [Installation](installation.md): install runtime dependencies and start local services.
+1. [Installation](installation.md): install the local runtime and its dependencies.
+2. [Quickstart](quickstart.md): validate and submit a checked-in blueprint.
+3. [Examples](examples.md): choose a blueprint that matches the workflow you want to explore.
+4. [Security Model](security.md): understand the trust boundaries before running third-party or production workloads.
 
 ## Documentation Map
 
-| Page | Type | Use it when |
-| --- | --- | --- |
-| [Quickstart](quickstart.md) | Tutorial | You want the shortest path to first success. |
-| [Installation](installation.md) | Tutorial | You need to install Redis, OpenShell, Elixir, and Python tooling. |
-| [Component Guide](component-guide.md) | Overview | You need the repository map, folder responsibilities, and local validation commands. |
-| [Examples](examples.md) | Tutorial | You want to choose the right checked-in blueprint. |
-| [Skill Catalog](skill-catalog.md) | Reference | You need centralized summaries for reusable skill packages. |
-| [Cluster Guide](cluster.md) | How-to | You need to start or inspect a multi-box runtime. |
-| [Nomad-Inspired Runtime Features](nomad-inspired-runtime.md) | Overview | You want the status and code map for reconciliation, job types, policies, drain, services, resources, deployments, and schedules. |
-| [Redis High Availability](redis-ha.md) | How-to | You need Redis Sentinel failover. |
-| [Monitor Guide](monitor.md) | How-to | You need to inspect live jobs and events. |
-| [CLI Reference](cli.md) | Reference | You need exact CLI commands and options. |
-| [Environment Variables](env_variables.md) | Reference | You need config names, defaults, and effects. |
-| [API Reference](api.md) | Reference | You need HTTP or Elixir API shapes. |
-| [Job Bundle Format](bundle.md) | Reference | You are writing or validating `manifest.json`. |
-| [Python SDK](SDK.md) | Reference | You want to compile Python workflow definitions into bundles. |
-| [Blueprint Standard](blueprint-standard.md) | Reference | You need the cross-blueprint contract for manifests, run stores, agents, aliases, artifacts, privacy, and UI surfaces. |
-| [Services and Health Checks](services-and-health-checks.md) | How-to | You need service declarations, registry lookup, or required service preflight. |
-| [Model Runtime](model-runtime.md) | How-to | You need to install, inspect, validate, or use local Docker Model Runner LLMs. |
-| [Docker and OpenShell for Blueprints](docker_and_openshell_for_blueprints.md) | How-to | You need local files, ports, web UIs, host services, or sandbox resources to work first time. |
-| [Resources and Devices](resources-and-devices.md) | Reference | You need CUDA, Metal, GPU memory, ports, volumes, or runtime-driver placement. |
-| [Deployments](deployments.md) | How-to | You need rolling, canary, promotion, rollback, or versioned long-running jobs. |
-| [Schedules and Events](schedules-and-events.md) | How-to | You need cron, delayed, or event-triggered jobs. |
-| [Runtime Architecture](runtime-architecture.md) | Explanation | You want the control-plane/execution-plane mental model. |
-| [Cluster Architecture](cluster_architecture.md) | Explanation | You want leader, node, and relocation behavior. |
-| [Reliability Guide](reliability.md) | Explanation | You want recovery, leases, backpressure, and retention behavior. |
-| [Security Model](security.md) | Explanation | You need trust boundaries and safe defaults. |
-| [Blueprints and Skills](blueprints-and-skills.md) | How-to | You are extending MirrorNeuron safely. |
-| [Testing](testing.md) | Reference | You need the test matrix and commands. |
-| [Contributing](contributing.md) | Tutorial | You are preparing a pull request. |
-| [Documentation Style](documentation-style.md) | Reference | You are editing docs. |
+| Page | Use it when |
+| --- | --- |
+| [Installation](installation.md) | You need the supported installer, local-development setup, or uninstall steps. |
+| [Quickstart](quickstart.md) | You want to validate a blueprint, start the runtime, and inspect a run. |
+| [Examples](examples.md) | You want to explore one of the checked-in OtterDesk blueprints. |
+| [CLI Reference](cli.md) | You need exact `mn` command groups and options. |
+| [API Reference](api.md) | You are integrating with the FastAPI gateway. |
+| [Environment Variables](env_variables.md) | You need runtime, API, cluster, or model configuration. |
+| [Model Runtime](model-runtime.md) | You are using Docker Model Runner or a remote model provider. |
+| [Services and Health Checks](services-and-health-checks.md) | You need service discovery or preflight checks. |
+| [Resources and Devices](resources-and-devices.md) | You are configuring CPU, GPU, ports, volumes, or placement constraints. |
+| [Cluster Guide](cluster.md) | You are starting or operating a multi-machine runtime. |
+| [Redis High Availability](redis-ha.md) | You need Redis Sentinel failover. |
+| [Deployments](deployments.md) | You need rolling, canary, promotion, rollback, or versioned long-running jobs. |
+| [Schedules and Events](schedules-and-events.md) | You need cron, delayed, or event-triggered jobs. |
+| [Runtime Architecture](runtime-architecture.md) | You want the control-plane and execution-plane mental model. |
+| [Reliability Guide](reliability.md) | You need recovery, leases, backpressure, and retention details. |
+| [Blueprints and Skills](blueprints-and-skills.md) | You are building or extending a blueprint safely. |
+| [Testing](testing.md) | You need the current test matrix and commands. |
+| [Troubleshooting](troubleshooting.md) | You are diagnosing local runtime, Redis, OpenShell, model, or cluster issues. |
 
+## Safe First Run
+
+Before you run a workflow, inspect its `manifest.json`, payloads, model requirements, and `pass_env` entries. Then validate it locally:
+
+```bash
+mn blueprint validate otterdesk-blueprints/generic_customer_service_voice_coworker
+```
+
+Validation does not submit a job. When the blueprint's required services and inputs are ready, start the runtime and run it:
+
+```bash
+mn runtime start
+mn blueprint run --folder otterdesk-blueprints/generic_customer_service_voice_coworker
+```
+
+Use [Quickstart](quickstart.md) for the full flow and [Security Model](security.md) before exposing a runtime beyond your trusted local network.
 
 ## Contributor Path
 
-1. Read [Runtime Architecture](runtime-architecture.md).
-2. Run [Testing](testing.md) commands.
-3. Make a small focused change.
-4. Update docs when behavior changes.
-5. Use the [Contributing](contributing.md) checklist before opening a PR.
+1. Read [Component Guide](component-guide.md) and [Runtime Architecture](runtime-architecture.md).
+2. Run the relevant commands in [Testing](testing.md).
+3. Make a small focused change and update the affected reference page.
+4. Use the [Contributing](contributing.md) checklist before opening a pull request.

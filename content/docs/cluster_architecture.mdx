@@ -76,7 +76,7 @@ mn node list
 *You should see multiple items under `nodes`, and their respective hardware capacities pooled together in the `executor_pools`.*
 
 ## 6. Avoiding Local Resource Exhaustion
-When running heavy distributed load tests such as `parallel_worker_benchmark`, very high worker counts across a small two-node development setup may exhaust CPU and networking file descriptors, causing nodes to miss Erlang heartbeats (`timed out waiting for recovered agent ...`).
+Very high worker counts across a small two-node development setup can exhaust CPU and networking file descriptors, causing nodes to miss Erlang heartbeats (`timed out waiting for recovered agent ...`).
 
 To test scaling logic without overloading small development VMs, lower the worker count in the blueprint configuration before running the benchmark.
 

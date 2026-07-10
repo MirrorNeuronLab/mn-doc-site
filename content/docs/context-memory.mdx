@@ -12,10 +12,10 @@ selection, context compression, and benchmark evaluation.
 
 | Folder | Purpose | Main validation |
 | --- | --- | --- |
-| [`Membrane/mn-context-engine`](../Membrane/mn-context-engine) | Rust gRPC context engine. | `cargo test` |
-| [`Membrane/mn-context-engine-python-sdk`](../Membrane/mn-context-engine-python-sdk/README.md) | Python SDK shell and utilities for the Rust engine. | `python3 -m pytest -q` |
-| [`Membrane/mn-context-auto-optimizer`](../Membrane/mn-context-auto-optimizer/README.md) | Deterministic graph/NLP context compression and optional model tooling. | `python3 -m pytest -q` |
-| [`Membrane/mn-context-auto-optimizer-benchmark`](../Membrane/mn-context-auto-optimizer-benchmark/README.md) | Benchmark and telemetry package for context compression models. | `python3 -m pytest -q` |
+| `Membrane/mn-context-engine` | Rust gRPC context engine. | `cargo test` |
+| `Membrane/mn-context-engine-python-sdk` | Python SDK shell and utilities for the Rust engine. | `python3 -m pytest -q` |
+| `Membrane/mn-context-auto-optimizer` | Deterministic graph/NLP context compression and optional model tooling. | `python3 -m pytest -q` |
+| `Membrane/mn-context-auto-optimizer-benchmark` | Benchmark and telemetry package for context compression models. | `python3 -m pytest -q` |
 
 ## Python SDK
 
@@ -90,7 +90,7 @@ Build a blueprint-derived benchmark suite from the local catalog:
 
 ```bash
 mn-context-build-blueprint-suite \
-  --blueprint-root ../../mn-blueprints \
+  --blueprint-root ../../otterdesk-blueprints \
   --packet-output artifacts/data/blueprint_packet_results.json \
   --working-memory-output artifacts/data/blueprint_working_memory_cases.json \
   --coverage-output artifacts/data/blueprint_suite_coverage.json \

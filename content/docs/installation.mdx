@@ -1,77 +1,112 @@
 ---
 title: "Install MirrorNeuron"
-description: "Documentation for Install MirrorNeuron"
+description: "Install the local MirrorNeuron runtime or set it up from a checkout."
 ---
 
 # Install MirrorNeuron
 
-This guide installs the dependencies required to validate bundles, run local workflows, and execute the test suite.
+Use the deployment installer for a supported local runtime. Use local mode when you are working from the MirrorNeuron workspace and need editable components.
 
 ## Requirements
 
 - macOS, Linux, or Windows with WSL2
-- Docker
+- Docker running locally
+- `git`
 
-Docker Desktop includes the required plugin on macOS and Windows. On Linux, install the runtime plugin manually:
+For local development, also install Python 3.11+ and Elixir/Erlang. Docker Desktop includes Docker Model Runner on macOS and Windows; on Linux, install the Docker Model Runner plugin separately if you plan to use local models.
+
+## Install a Released Runtime
+
+From a checkout of the deployment repository:
 
 ```bash
-sudo apt-get update
-sudo apt-get install docker-model-plugin
+cd mn-deploy
+./install.sh --help
+./install.sh
 ```
 
-## Install with All-in-one Deployment Script
-
-Use the deployment script when you want to install MirrorNeuron system-wide and make the `mn` command available from your shell.
+Or use the hosted installer:
 
 ```bash
 curl -fsSL https://mirrorneuron.io/install.sh | bash
 ```
 
-You can also download `install.sh` and run it manually with options:
+The installer is non-interactive by default. Pass `--interactive` to review its choices or `--version <tag>` to install a matching released component set.
 
-```text
-wget https://mirrorneuron.io/install.sh
-bash install.sh --help
-bash install.sh
-```
-
-Verify the installation:
+Verify the CLI and start the services:
 
 ```bash
 mn --help
+mn runtime start
+mn runtime health
 ```
 
-This installs the latest released version of MirrorNeuron. If you need a legacy version, check the GitHub releases.
+The deployment scripts store local runtime state under `~/.mn` by default. The REST API listens on `http://localhost:54001/api/v1` unless `MN_API_PORT` is set.
 
-## Configure the Local Environment
+## Install From a Workspace Checkout
 
-Most users do not need to configure local environment variables. If you want to change the default installation path or use development mode, see the [Development Guide](development.md).
+From the workspace root, run the installer in local mode:
 
-## Uninstall MirrorNeuron
+```bash
+cd mn-deploy
+./install.sh --mode local
+```
 
-Stop MirrorNeuron:
+This is the supported route for an editable local installation. After it completes:
+
+```bash
+mn runtime start
+mn node list
+```
+
+If you are changing the BEAM core directly, fetch and compile its dependencies from the core repository:
+
+```bash
+cd MirrorNeuron
+mix deps.get
+mix compile
+```
+
+## Optional: Local Model Runtime
+
+For blueprints that use Docker Model Runner, inspect and install the requested model before launching the workflow:
+
+```bash
+mn model list
+mn model install gemma4:e2b
+mn model doctor gemma4:e2b
+```
+
+Read [Model Runtime](model-runtime.md) for model selection and remote-provider configuration.
+
+## Validate the Setup
+
+Validate a checked-in blueprint before submitting it:
+
+```bash
+mn blueprint validate otterdesk-blueprints/generic_customer_service_voice_coworker
+```
+
+Validation checks the bundle and its declared requirements without starting a job. Continue with [Quickstart](quickstart.md) when it succeeds.
+
+## Uninstall
+
+Stop the local runtime first:
 
 ```bash
 mn runtime stop
 ```
 
-Run the uninstall script:
+If you installed with the hosted installer, run its matching uninstall script:
 
 ```bash
 curl -fsSL https://mirrorneuron.io/uninstall.sh | bash
 ```
 
-Remove all data and configuration files:
-
-```bash
-rm -f ~/mn
-```
-
-If MirrorNeuron is installed on a cluster, run the commands above on every node to remove it completely.
+Only remove `~/.mn` manually when you intend to delete its local runtime configuration, run records, and model metadata.
 
 ## Common Install Issues
 
-If setup does not work as expected, see:
-
 - [Troubleshooting](troubleshooting.md)
 - [Testing](testing.md)
+- [Docker and OpenShell for Blueprints](docker_and_openshell_for_blueprints.md)

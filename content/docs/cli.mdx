@@ -16,7 +16,7 @@ mn --version
 Expected output includes:
 
 ```text
-mn <version>
+MirrorNeuron CLI
 ```
 
 ## Command Summary
@@ -97,7 +97,7 @@ Runs a catalog blueprint by ID, or a local bundle/source folder when `--folder`
 is provided.
 
 ```bash
-mn blueprint run message_routing_trace
+mn blueprint run <blueprint_id>
 mn blueprint run --folder ./bundle
 ```
 
@@ -110,7 +110,7 @@ Job submitted successfully
 Limit how long the CLI follows post-submit events:
 
 ```bash
-mn blueprint run message_routing_trace --follow-seconds 10
+mn blueprint run <blueprint_id> --follow-seconds 10
 ```
 
 Environment controls:
@@ -554,7 +554,7 @@ Job Name
 Runs a blueprint by name.
 
 ```bash
-mn blueprint run message_routing_trace
+mn blueprint run <blueprint_id>
 ```
 
 Expected output:
@@ -571,7 +571,7 @@ Removes blueprint-owned runtime resources that are no longer referenced by the l
 
 ```bash
 mn blueprint cleanup
-mn blueprint cleanup --blueprint-id business_facility_safety_video_guardian
+mn blueprint cleanup --blueprint-id <blueprint_id>
 mn blueprint cleanup --dry-run
 mn blueprint cleanup --runs-root ~/.mn/runs --generated-bundles-dir ~/.mn/generated_blueprint_bundles --bundle-cache-dir /tmp/mirror_neuron/bundle_cache
 ```

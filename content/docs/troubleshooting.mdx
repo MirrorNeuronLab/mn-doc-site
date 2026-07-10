@@ -187,19 +187,18 @@ Fix:
 - If you are running nodes on different physical machines, they will auto-generate different cookies by default.
 - Set the cookie explicitly on both boxes before starting: `export MN_COOKIE="my_shared_secret"`
 
-### HTTP port `eaddrinuse` (4000 already in use)
+### API port already in use
 
 Symptoms:
 
-- `[error] Running MirrorNeuron.API.Router with Bandit 1.10.4 at http failed, port 4000 already in use`
-- `** (EXIT) shutdown: failed to start child: :listener`
+- `Address already in use`
+- the API sidecar fails to start
 
 Fix:
 
-- By default, the MirrorNeuron HTTP API binds to port `4000`.
-- If you run multiple nodes on the same machine, or if you accidentally configure the Erlang `--bind` to port 4000, they will clash.
-- Override the HTTP API port for one of the nodes: `export MN_API_PORT=4001`
-- Make sure your Erlang `--bind` distribution port (e.g., `4370`) is completely different from your `MN_API_PORT`.
+- By default, the FastAPI gateway binds to port `54001`.
+- Stop the conflicting process or choose another API port, for example: `export MN_API_PORT=54002`.
+- Keep the API port distinct from the gRPC port (`55051` by default) and the Docker Model Runner/LiteLLM gateway port (`4000` by default).
 
 ### runtime node name already in use
 
@@ -305,5 +304,3 @@ openshell status
 openshell sandbox list
 epmd -names
 ```
----
-unlink(content/docs/md-legacy/troubleshooting.md)
