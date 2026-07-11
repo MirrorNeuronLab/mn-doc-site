@@ -8,13 +8,14 @@ const config = {
 };
 
 export default withMDX({
-  async redirects() {
-    return [
-      {
-        source: '/',
-        destination: '/docs',
-        permanent: false,
-      },
-    ];
+  async rewrites() {
+    return {
+      beforeFiles: [
+        {
+          source: '/',
+          destination: '/docs',
+        },
+      ],
+    };
   },
 });

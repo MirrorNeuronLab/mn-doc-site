@@ -11,55 +11,55 @@ Use MirrorNeuron when you need explicit workflow execution, inspection, and loca
 
 ## Start Here
 
-1. [Why MirrorNeuron](why-mirrorneuron.md): decide whether the runtime fits your workload and risk model.
-2. [Installation](installation.md): install the local runtime and verify its services.
-3. [Quickstart](quickstart.md): prepare, validate, submit, and inspect a local blueprint.
-4. [Security Model](security.md): understand the trust boundaries before running third-party or production workloads.
+1. [Why MirrorNeuron](/why-mirrorneuron): decide whether the runtime fits your workload and risk model.
+2. [Installation](/installation): install the local runtime and verify its services.
+3. [Quickstart](/quickstart): prepare, validate, submit, and inspect a local blueprint.
+4. [Security Model](/security): understand the trust boundaries before running third-party or production workloads.
 
 ## Choose Your Path
 
 | You are… | Start here | Then |
 | --- | --- | --- |
-| Evaluating MirrorNeuron | [Why MirrorNeuron](why-mirrorneuron.md) | [Core Concepts](core-concepts.md), [Quickstart](quickstart.md), [Security Model](security.md) |
-| Running a local workflow | [Installation](installation.md) | [Quickstart](quickstart.md), [Examples](examples.md), [Troubleshooting](troubleshooting.md) |
-| Authoring a blueprint | [Core Concepts](core-concepts.md) | [Blueprint Standard](blueprint-standard.md), [Blueprints and Skills](blueprints-and-skills.md), [Testing](testing.md) |
-| Operating a runtime | [Services and Health Checks](services-and-health-checks.md) | [Monitor Guide](monitor.md), [Reliability Guide](reliability.md), [Troubleshooting](troubleshooting.md) |
-| Contributing | [Component Guide](component-guide.md) | [Runtime Architecture](runtime-architecture.md), [Testing](testing.md), [Contributing](contributing.md) |
+| Evaluating MirrorNeuron | [Why MirrorNeuron](/why-mirrorneuron) | [Core Concepts](/core-concepts), [Quickstart](/quickstart), [Security Model](/security) |
+| Running a local workflow | [Installation](/installation) | [Quickstart](/quickstart), [Examples](/examples), [Troubleshooting](/troubleshooting) |
+| Authoring a blueprint | [Core Concepts](/core-concepts) | [Blueprint Standard](/blueprint-standard), [Blueprints and Skills](/blueprints-and-skills), [Testing](/testing) |
+| Operating a runtime | [Services and Health Checks](/services-and-health-checks) | [Monitor Guide](/monitor), [Reliability Guide](/reliability), [Troubleshooting](/troubleshooting) |
+| Contributing | [Component Guide](/component-guide) | [Runtime Architecture](/runtime-architecture), [Testing](/testing), [Contributing](/contributing) |
 
 ## Documentation Map
 
 | Page | Use it when |
 | --- | --- |
-| [Installation](installation.md) | You need the supported installer, local-development setup, or uninstall steps. |
-| [Quickstart](quickstart.md) | You want to validate a blueprint, start the runtime, and inspect a run. |
-| [Why MirrorNeuron](why-mirrorneuron.md) | You are evaluating fit, boundaries, and non-guarantees. |
-| [Core Concepts](core-concepts.md) | You need the shared workflow, blueprint, job, and runtime-node vocabulary. |
-| [Examples](examples.md) | You want to explore one of the checked-in OtterDesk blueprints. |
-| [CLI Reference](cli.md) | You need exact `mn` command groups and options. |
-| [API Reference](api.md) | You are integrating with the FastAPI gateway. |
-| [Environment Variables](env_variables.md) | You need runtime, API, cluster, or model configuration. |
-| [Model Runtime](model-runtime.md) | You are using Docker Model Runner or a remote model provider. |
-| [Services and Health Checks](services-and-health-checks.md) | You need service discovery or preflight checks. |
-| [Resources and Devices](resources-and-devices.md) | You are configuring CPU, GPU, ports, volumes, or placement constraints. |
-| [Cluster Guide](cluster.md) | You are starting or operating a multi-machine runtime. |
-| [Redis High Availability](redis-ha.md) | You need Redis Sentinel failover. |
-| [Deployments](deployments.md) | You need rolling, canary, promotion, rollback, or versioned long-running jobs. |
-| [Schedules and Events](schedules-and-events.md) | You need cron, delayed, or event-triggered jobs. |
-| [Runtime Architecture](runtime-architecture.md) | You want the control-plane and execution-plane mental model. |
-| [Reliability Guide](reliability.md) | You need recovery, leases, backpressure, and retention details. |
-| [Blueprints and Skills](blueprints-and-skills.md) | You are building or extending a blueprint safely. |
-| [Testing](testing.md) | You need the current test matrix and commands. |
-| [Troubleshooting](troubleshooting.md) | You are diagnosing local runtime, Redis, OpenShell, model, or cluster issues. |
+| [Installation](/installation) | You need the supported installer, local-development setup, or uninstall steps. |
+| [Quickstart](/quickstart) | You want to validate a blueprint, start the runtime, and inspect a run. |
+| [Why MirrorNeuron](/why-mirrorneuron) | You are evaluating fit, boundaries, and non-guarantees. |
+| [Core Concepts](/core-concepts) | You need the shared workflow, blueprint, job, and runtime-node vocabulary. |
+| [Examples](/examples) | You want to explore one of the checked-in OtterDesk blueprints. |
+| [CLI Reference](/cli) | You need exact `mn` command groups and options. |
+| [API Reference](/api) | You are integrating with the FastAPI gateway. |
+| [Environment Variables](/env_variables) | You need runtime, API, cluster, or model configuration. |
+| [Model Runtime](/model-runtime) | You are using Docker Model Runner or a remote model provider. |
+| [Services and Health Checks](/services-and-health-checks) | You need service discovery or preflight checks. |
+| [Resources and Devices](/resources-and-devices) | You are configuring CPU, GPU, ports, volumes, or placement constraints. |
+| [Cluster Guide](/cluster) | You are starting or operating a multi-machine runtime. |
+| [Redis High Availability](/redis-ha) | You need Redis Sentinel failover. |
+| [Deployments](/deployments) | You need rolling, canary, promotion, rollback, or versioned long-running jobs. |
+| [Schedules and Events](/schedules-and-events) | You need cron, delayed, or event-triggered jobs. |
+| [Runtime Architecture](/runtime-architecture) | You want the control-plane and execution-plane mental model. |
+| [Reliability Guide](/reliability) | You need recovery, leases, backpressure, and retention details. |
+| [Blueprints and Skills](/blueprints-and-skills) | You are building or extending a blueprint safely. |
+| [Testing](/testing) | You need the current test matrix and commands. |
+| [Troubleshooting](/troubleshooting) | You are diagnosing local runtime, Redis, OpenShell, model, or cluster issues. |
 
 ## First safe workflow
 
-The checked-in blueprints have different hardware, model, input, and service requirements. Start with the [Quickstart](quickstart.md), which uses a review-only sample configuration and makes the model preflight explicit. Before any launch, inspect the blueprint's `manifest.json`, payloads, model requirements, and `pass_env` entries.
+The checked-in blueprints have different hardware, model, input, and service requirements. Start with the [Quickstart](/quickstart), which uses a review-only sample configuration and makes the model preflight explicit. Before any launch, inspect the blueprint's `manifest.json`, payloads, model requirements, and `pass_env` entries.
 
-Use [Security Model](security.md) before exposing a runtime beyond your trusted local network or supplying real data.
+Use [Security Model](/security) before exposing a runtime beyond your trusted local network or supplying real data.
 
 ## Contributor Path
 
-1. Read [Component Guide](component-guide.md) and [Runtime Architecture](runtime-architecture.md).
-2. Run the relevant commands in [Testing](testing.md).
+1. Read [Component Guide](/component-guide) and [Runtime Architecture](/runtime-architecture).
+2. Run the relevant commands in [Testing](/testing).
 3. Make a small focused change and update the affected reference page.
-4. Use the [Contributing](contributing.md) checklist before opening a pull request.
+4. Use the [Contributing](/contributing) checklist before opening a pull request.

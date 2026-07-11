@@ -63,7 +63,7 @@ export MN_REDIS_SENTINEL_MASTER="mirror-neuron"
 export MN_REDIS_DB="0"
 ```
 
-See [Redis High Availability](redis-ha.md) for Sentinel setup and failover tests.
+See [Redis High Availability](/redis-ha) for Sentinel setup and failover tests.
 
 ## Start A Two-Box Cluster
 
@@ -193,7 +193,7 @@ Execution profiles can also imply GPU demand. If a node asks for a profile whose
 
 Placement records include concrete allocations for selected devices, reserved ports, volumes, and runtime driver. Core injects safe environment hints such as `MN_ALLOCATION_JSON`, `MN_ALLOCATED_DEVICE_IDS`, `CUDA_VISIBLE_DEVICES`, `MN_PORT_<LABEL>`, and `MN_VOLUME_<NAME>`.
 
-See [Resources and Devices](resources-and-devices.md) for the full resource model.
+See [Resources and Devices](/resources-and-devices) for the full resource model.
 
 ### Constraints And Capabilities
 
@@ -429,11 +429,11 @@ For production Redis HA, use at least three Sentinel voters. A two-box Sentinel 
 
 ## Related Docs
 
-- [Nomad-Inspired Runtime Features](nomad-inspired-runtime.md)
-- [Reliability Guide](reliability.md)
-- [Resources and Devices](resources-and-devices.md)
-- [Services and Health Checks](services-and-health-checks.md)
-- [Redis High Availability](redis-ha.md)
-- [CLI Reference](cli.md)
-- [Runtime Architecture](runtime-architecture.md)
-- [Troubleshooting](troubleshooting.md)
+- [Nomad-Inspired Runtime Features](/nomad-inspired-runtime)
+- [Reliability Guide](/reliability)
+- [Resources and Devices](/resources-and-devices)
+- [Services and Health Checks](/services-and-health-checks)
+- [Redis High Availability](/redis-ha)
+- [CLI Reference](/cli)
+- [Runtime Architecture](/runtime-architecture)
+- [Troubleshooting](/troubleshooting)

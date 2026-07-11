@@ -37,10 +37,10 @@ The `manifest.json` is a JSON document that defines the execution graph.
 | `job_name` | String | Optional. A human-readable name for the job. Defaults to `graph_id` if missing. |
 | `type` | String | Optional. Set to `"service"` for workflows intended to run until manually stopped. Omit for default batch workflows. `system` and `sysbatch` are selected through scheduler policy. |
 | `requiredContextEngine` | Boolean | Optional. Set to `true` when the workflow requires the Context Engine. The runtime checks `CONTEXT_ENGINE_ADDR` or port `50052` and rejects the run before scheduling agents if the service is unavailable. Defaults to `false`. |
-| `services` | Array | Optional. Services registered by the job. See [Services and Health Checks](services-and-health-checks.md). |
+| `services` | Array | Optional. Services registered by the job. See [Services and Health Checks](/services-and-health-checks). |
 | `required_services` | Array | Optional. Services that must be healthy before job start. |
-| `deployment` | Object | Optional. Stable deployment key and metadata. See [Deployments](deployments.md). |
-| `schedule` | Object | Optional. Periodic or delayed schedule declaration. See [Schedules and Events](schedules-and-events.md). |
+| `deployment` | Object | Optional. Stable deployment key and metadata. See [Deployments](/deployments). |
+| `schedule` | Object | Optional. Periodic or delayed schedule declaration. See [Schedules and Events](/schedules-and-events). |
 | `triggers` | Array | Optional. Event-trigger schedule declarations. |
 | `parameterized` | Object | Optional. Dispatch payload and metadata declaration for scheduled or event-triggered runs. |
 | `metadata` | Object | Optional. Custom metadata tags for the job. |
@@ -116,7 +116,7 @@ Job-level policies live under `policies.restart` and `policies.reschedule`. Per-
 }
 ```
 
-See [Reliability Guide](reliability.md).
+See [Reliability Guide](/reliability).
 
 ### Resource Requirements
 
@@ -154,7 +154,7 @@ See [Reliability Guide](reliability.md).
 }
 ```
 
-See [Resources and Devices](resources-and-devices.md).
+See [Resources and Devices](/resources-and-devices).
 
 ### Service Requirements
 
@@ -178,7 +178,7 @@ See [Resources and Devices](resources-and-devices.md).
 }
 ```
 
-See [Services and Health Checks](services-and-health-checks.md).
+See [Services and Health Checks](/services-and-health-checks).
 
 ### Deployment Policy
 
@@ -199,7 +199,7 @@ See [Services and Health Checks](services-and-health-checks.md).
 }
 ```
 
-See [Deployments](deployments.md).
+See [Deployments](/deployments).
 
 ### Schedule And Triggers
 
@@ -226,7 +226,7 @@ See [Deployments](deployments.md).
 }
 ```
 
-See [Schedules and Events](schedules-and-events.md).
+See [Schedules and Events](/schedules-and-events).
 
 ### Edges (Routing)
 
@@ -380,6 +380,6 @@ Expected validation output:
 Job bundle at 'path/to/my_job_bundle' is valid.
 ```
 
-Before running a third-party bundle, review `manifest.json`, `payloads/`, `runner`, `command`, `pass_env`, and any OpenShell `policy` file. See [Security Model](security.md).
+Before running a third-party bundle, review `manifest.json`, `payloads/`, `runner`, `command`, `pass_env`, and any OpenShell `policy` file. See [Security Model](/security).
 
 Via the API (HTTP POST to `/api/v1/jobs`), the exact same `manifest.json` shape is accepted, with the payloads assumed to either already exist locally or omitted in pure-router workflows.

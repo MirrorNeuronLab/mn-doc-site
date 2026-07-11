@@ -151,7 +151,7 @@ If you need durable long-running behavior, set the workflow type to `service` an
 | `requires_services` | Node-scoped service requirements used by the scheduler. |
 | `raw_config` | Escape hatch for manifest fields not represented by the SDK. |
 
-Keep `pass_env` narrow. See [Security Model](security.mdx).
+Keep `pass_env` narrow. See [Security Model](/security).
 
 ## Workflow Options
 
@@ -201,7 +201,7 @@ client.dispatch_schedule("schedule-id", payload={"manual": True})
 client.emit_trigger_event("file_uploaded", payload={"path": "/data/eval.jsonl"})
 ```
 
-See [Nomad-Inspired Runtime Features](nomad-inspired-runtime.mdx), [Services and Health Checks](services-and-health-checks.mdx), [Resources and Devices](resources-and-devices.mdx), [Deployments](deployments.mdx), and [Schedules and Events](schedules-and-events.mdx).
+See [Nomad-Inspired Runtime Features](/nomad-inspired-runtime), [Services and Health Checks](/services-and-health-checks), [Resources and Devices](/resources-and-devices), [Deployments](/deployments), and [Schedules and Events](/schedules-and-events).
 
 ## Packaging Rules
 
@@ -234,7 +234,7 @@ in version control.
 
 ## Related Pages
 
-- [Blueprints and Skills](blueprints-and-skills.mdx)
-- [Job Bundle Format](bundle.mdx)
-- [Security Model](security.mdx)
-- [Testing](testing.mdx)
+- [Blueprints and Skills](/blueprints-and-skills)
+- [Job Bundle Format](/bundle)
+- [Security Model](/security)
+- [Testing](/testing)

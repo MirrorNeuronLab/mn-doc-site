@@ -82,7 +82,7 @@ mn blueprint list
 mn blueprint run <blueprint_id>
 ```
 
-Cluster helper scripts in `MirrorNeuron/scripts/` provide lower-level node start, join, Redis HA, and failover smoke-test flows. See [Cluster Guide](cluster.md) and [Redis High Availability](redis-ha.md).
+Cluster helper scripts in `MirrorNeuron/scripts/` provide lower-level node start, join, Redis HA, and failover smoke-test flows. See [Cluster Guide](/cluster) and [Redis High Availability](/redis-ha).
 
 ## `mn blueprint validate`
 
@@ -343,7 +343,7 @@ Set coarse resource limit percentages:
 mn resource set --cpu 75 --memory 75 --gpu 100 --disk 75
 ```
 
-See [Resources and Devices](resources-and-devices.md).
+See [Resources and Devices](/resources-and-devices).
 
 ## `mn service`
 
@@ -356,7 +356,7 @@ mn service resolve ollama --tag llm
 mn service check /path/to/bundle --output json
 ```
 
-See [Services and Health Checks](services-and-health-checks.md).
+See [Services and Health Checks](/services-and-health-checks).
 
 ## `mn model`
 
@@ -373,7 +373,7 @@ mn model remove gemma4:e2b
 
 The default model is `gemma4:e2b`, which resolves to Docker's `ai/gemma4:E2B` model. Installs block incompatible hardware unless `--force` is passed.
 
-See [Model Runtime](model-runtime.md).
+See [Model Runtime](/model-runtime).
 
 ## `mn deployment deploy` And `mn deployment`
 
@@ -395,7 +395,7 @@ mn deployment resume agent-api --reason "continue"
 mn deployment fail agent-api --reason "candidate failed"
 ```
 
-See [Deployments](deployments.md).
+See [Deployments](/deployments).
 
 ## `mn schedule`, `mn trigger`, And `mn event`
 
@@ -425,7 +425,7 @@ mn event emit file_uploaded --payload-json '{"path":"/datasets/eval.jsonl"}'
 mn event list
 ```
 
-See [Schedules and Events](schedules-and-events.md).
+See [Schedules and Events](/schedules-and-events).
 
 ## `mn runtime metrics`
 
@@ -540,7 +540,7 @@ mn node leave mirror_neuron@mn-node2
 
 If the node name matches this machine's persisted `MN_NODE_ALIAS`, the CLI also stops/detaches the local Docker core container. It does not remove the shared Docker network.
 
-For controlled two-box startup, prefer the scripts in [Cluster Guide](cluster.md).
+For controlled two-box startup, prefer the scripts in [Cluster Guide](/cluster).
 
 ## `mn blueprint list`
 
@@ -620,8 +620,8 @@ MN_CLI_OUTPUT=plain mn job list
 
 ## Related Pages
 
-- [Quickstart](quickstart.md)
-- [API Reference](api.md)
-- [Nomad-Inspired Runtime Features](nomad-inspired-runtime.md)
-- [Environment Variables](env_variables.md)
-- [Troubleshooting](troubleshooting.md)
+- [Quickstart](/quickstart)
+- [API Reference](/api)
+- [Nomad-Inspired Runtime Features](/nomad-inspired-runtime)
+- [Environment Variables](/env_variables)
+- [Troubleshooting](/troubleshooting)
