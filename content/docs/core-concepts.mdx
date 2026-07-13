@@ -35,13 +35,17 @@ The control plane accepts jobs, records their state, and exposes inspection and 
 
 ## Execution boundaries
 
-The runner selected by a blueprint changes the risk boundary:
+The execution mode selected by a blueprint determines where worker code runs, what resources it can access, and how strongly it is isolated from the rest of the system.
 
-- **HostLocal** runs worker code on the host. Use it only for code you trust.
-- **OpenShell** runs worker code in an OpenShell sandbox. Review its policy, uploads, and exposed services.
-- **Cluster execution** places eligible work on another runtime node. Treat the cluster as a shared trust domain.
+- **Direct host execution (`HostLocal`)** runs worker code directly on the machine. It provides the lowest overhead and direct access to local hardware, making it useful for trusted workloads such as real-time processing or large-scale simulation. Because the code shares the host environment, use this mode only for payloads you have reviewed and trust.
 
-The runtime can also connect a workflow to models and external services. Those connections are blueprint-specific; review the manifest, payloads, and `pass_env` before launch.
+- **Docker** is the default execution mode for most workflows. It provides a reproducible, containerized environment with controlled dependencies and file access. Use it for workflows that need a configured runtime but do not autonomously generate, install, and execute new code.
+
+- **NVIDIA OpenShell** runs worker code inside a policy-controlled sandbox. It is the preferred boundary for autonomous agents that create or modify code, install dependencies, or execute unfamiliar commands. Review the sandbox policy, uploaded or mounted files, credentials, network access, and exposed services before running the blueprint.
+
+## Running in Cluster
+
+Cluster execution allows jobs to run on MirrorNeuron runtime nodes which are connected into a pool of resources (GPU,CPU,Memory). The runtime can automatically place or relocate work across the cluster based on node availability and job requirements. See [Cluster](/cluster).
 
 ## What to inspect after a launch
 
@@ -60,6 +64,7 @@ mn blueprint tail <run_id>
 ```
 
 Replace `<job_id>` and `<run_id>` with the values printed by `mn blueprint run`.
+
 
 ## Related pages
 
