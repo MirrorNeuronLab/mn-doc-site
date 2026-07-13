@@ -16,23 +16,24 @@ Use this guide to install a local MirrorNeuron runtime and verify that its CLI a
 
 Docker Model Runner is required only for blueprints that use local models. Docker Desktop supplies it on macOS and Windows; install the Docker Model Runner plugin separately on Linux when you need local model execution.
 
-## Install a released runtime
-
-From a checkout of the deployment repository, inspect the installer before running it:
+Easies way is using installer for our released runtime:
 
 ```bash
+curl -fsSL https://mirrorneuron.io/install.sh | bash
+```
+
+## Install the dev version from github 
+
+If you want to install from our legacy or unpublised dev versions, using the github repository:
+
+```bash
+git clone https://github.com/MirrorNeuronLab/mn-deploy
 cd mn-deploy
 ./install.sh --help
 ./install.sh
 ```
 
 The installer runs non-interactively with its default selections. Use `--interactive` to confirm choices or `--version <release-tag>` to install a matching released component set.
-
-You can also use the hosted installer:
-
-```bash
-curl -fsSL https://mirrorneuron.io/install.sh | bash
-```
 
 Warning: piping an installer into a shell executes the downloaded script immediately. Prefer the checked-out installer when you need to inspect or customize the installation.
 
@@ -44,39 +45,19 @@ Confirm that the CLI is on your `PATH` and that the runtime can start:
 mn --help
 mn runtime start
 mn runtime health
+mn runtime doctor
 ```
 
-`mn --help` should display the MirrorNeuron CLI command groups. `mn runtime health` should complete without reporting a failed required runtime component.
+`mn --help` should display the MirrorNeuron CLI command groups. 
+`mn runtime health` should complete without reporting a failed required runtime component.
+`mn runtime doctor` should prob all components without problem.
 
 The default local state directory is `~/.mn`. Unless you override `MN_API_PORT`, the REST API is available at `http://localhost:54001/api/v1`.
 
-## Install from a workspace checkout
-
-Use local mode when you need editable components from the workspace rather than released artifacts:
-
-```bash
-cd mn-deploy
-./install.sh --mode local
-```
-
-Then verify the local runtime:
-
-```bash
-mn runtime status
-mn node list
-```
-
-If you change MirrorNeuron Core itself, compile it from its repository:
-
-```bash
-cd MirrorNeuron
-mix deps.get
-mix compile
-```
-
 ## Prepare local models only when required
 
-The selected blueprint determines its model requirement. Inspect or install a local Docker Model Runner model only when its preflight reports one:
+You usually do not need to install models manually. MirrorNeuron installs the required model automatically when a blueprint needs it. 
+To verify that a model works on your machine, run mn doctor. It reports model availability and shows whether inference is using available hardware acceleration, including NVIDIA, AMD, Intel, or Apple Metal.
 
 ```bash
 mn model list

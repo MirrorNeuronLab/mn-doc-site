@@ -1,65 +1,186 @@
 ---
 title: Security Model
-description: Overview of security considerations, trust boundaries, and safe practices for the MirrorNeuron runtime.
+description: Understand how MirrorNeuron keeps AI workloads local, where data may still leave your environment, and how to run blueprints safely.
 ---
 
 # Security Model
 
-Use this page before you run a third-party blueprint, handle sensitive data, expose a listener, or join a runtime node to a cluster. MirrorNeuron can execute code, read declared files, use declared environment variables, and call configured services; the operator is responsible for selecting and protecting those boundaries.
+MirrorNeuron is designed to let you run AI models, process data, and store workflow state on infrastructure you control.
 
-## Before you begin
+When a blueprint is configured for fully local operation:
 
-- Know which runner each worker uses: HostLocal or OpenShell.
-- Review the blueprint `manifest.json`, payloads, and `pass_env` entries.
-- Keep Redis, API, gRPC, and artifact-sharing interfaces on a trusted network.
-- Do not use real secrets or regulated data for an unreviewed blueprint.
+- model inference runs on your own hardware;
+- files are processed inside your environment;
+- workflow state, events, and output artifacts remain under your control;
+- the job can continue without depending on a cloud AI service.
 
-## What MirrorNeuron Can Access
+However, local AI does not automatically make every workflow private or offline. A blueprint may include skills that browse the web, call an API, send email, connect to a third-party service, download software, or execute generated code.
 
-Depending on configuration and bundle contents, MirrorNeuron can access:
+Your security boundary is determined by the blueprint, its skills, its permissions, and how you configure the surrounding network and infrastructure.
 
-- Redis state used for jobs, events, agent snapshots, leases, bundle archives, and node state.
-- Local files included in a job bundle under `payloads/`.
-- Local commands executed by the `HostLocal` runner.
-- OpenShell sandboxes, uploaded files, stdout, stderr, and sandbox artifacts.
-- Environment variables explicitly listed in a node or blueprint `pass_env`.
-- Model provider APIs and third-party services used by skills or worker payloads.
-- Cluster peers reachable through BEAM distribution and configured network ports.
-- Live inputs from service workflows, Slack/email integrations, sensors, or API clients.
+## Security in one sentence
 
-## Trust Boundaries
+MirrorNeuron gives you the ability to keep AI work local, inspect what it can access, and control where it runs—but you must still protect your files, credentials, network ports, and execution environment.
+
+## What can stay local
+
+When configured with local models and local skills, MirrorNeuron can keep the complete workflow on your own machines:
+
+- **Model inference:** Prompts and model responses are processed by locally installed models.
+- **Data processing:** Documents, images, video, sensor data, and other inputs can be processed without uploading them to a cloud service.
+- **Workflow state:** Job status, events, agent state, and recovery information can remain in your local runtime.
+- **Artifacts:** Generated reports, intermediate files, logs, and other outputs can remain in storage you control.
+- **Execution:** Workers can run on one machine or across trusted machines inside your private network.
+
+This is especially useful for sensitive documents, industrial systems, video processing, physical AI, regulated workflows, and environments with limited or unreliable internet access.
+
+## Local AI does not always mean an offline workflow
+
+Your AI model may run locally while individual skills still access the internet.
+
+For example, a skill may:
+
+- browse websites;
+- call a search engine or external API;
+- send email or Slack messages;
+- access cloud storage;
+- download packages or dependencies;
+- connect to a remote database;
+- use an external model provider; or
+- submit data to another third-party service.
+
+These actions may send prompts, files, metadata, credentials, or generated results outside your environment.
+
+Before running a blueprint with sensitive data, review every skill and identify:
+
+- what files it can read;
+- what services it can contact;
+- what information it sends;
+- what credentials it receives; and
+- what actions it can perform.
+
+## Air-gapped operation
+
+For the strongest isolation, MirrorNeuron can be deployed in an air-gapped environment with no external network access.
+
+Before disconnecting the network, make sure the environment already contains:
+
+- the required local models;
+- blueprint files and payloads;
+- software dependencies;
+- local databases and storage;
+- required tools; and
+- any other resources needed by the workflow.
+
+Once everything is installed, you can disconnect the network cable or disable network access and verify that the job continues running.
+
+This is a practical way to confirm that a blueprint does not depend on an external AI model or online service.
+
+A blueprint that requires web browsing, cloud APIs, email, remote storage, or other online services will not provide its complete functionality in an air-gapped environment. For strict deployments, use network policies to block undeclared destinations rather than relying only on documentation.
+
+## Blueprints and skills are executable software
+
+A blueprint is not only a prompt. It may contain scripts, tools, dependencies, configuration, and skills that can take actions on behalf of the AI.
+
+Depending on its permissions, a blueprint may be able to:
+
+- read or create files;
+- execute commands;
+- install packages;
+- access environment variables;
+- call external services;
+- use network connections;
+- control software tools;
+- generate and execute new code; or
+- operate continuously without direct supervision.
+
+Treat a third-party blueprint the same way you would treat other third-party software.
+
+Do not run an unreviewed blueprint with sensitive data, production credentials, or unrestricted access to your machine.
+
+## Safely executing AI-generated code
+
+Some deep-agent blueprints generate code and execute it autonomously as they investigate a problem, run experiments, process data, or develop new skills.
+
+Generated code should not run directly on the operator's main system unless the blueprint and generated actions are fully trusted.
+
+Use an NVIDIA OpenShell sandbox for blueprints that:
+
+- generate or modify code;
+- install dependencies;
+- execute unfamiliar commands;
+- process untrusted files;
+- develop skills autonomously;
+- run for long periods without supervision; or
+- come from another person or repository.
+
+NVIDIA OpenShell provides a stronger execution boundary for autonomous agents by isolating processes and applying policies to file, credential, and network access.
+
+A sandbox reduces the potential impact of unsafe or incorrect code, but it does not remove the need to review:
+
+- uploaded files;
+- mounted directories;
+- network policies;
+- allowed commands;
+- available credentials;
+- package sources; and
+- data that can be exported from the sandbox.
+
+Use direct execution on the host machine only for code that you understand and trust.
+
+## Trust boundaries
 
 ```text
-User / operator
-      |
-      v
-CLI, API, SDK, Web UI
-      |
-      v
-MirrorNeuron BEAM runtime
-      |
-      +--> Redis durable state
-      +--> Cluster peer nodes
-      +--> HostLocal commands
-      +--> OpenShell sandboxes
-      +--> Bundle payload files
-      +--> External APIs and model providers
+User or operator
+       |
+       v
+CLI, API, SDK, or Web UI
+       |
+       v
+MirrorNeuron runtime
+       |
+       +--> Local models
+       +--> Workflow state and artifact storage
+       +--> Trusted runtime nodes
+       +--> Direct host execution
+       +--> NVIDIA OpenShell sandboxes
+       +--> Blueprint files and skills
+       +--> External APIs and third-party services
 ```
 
-Important boundaries:
+Important boundaries include:
 
-- **Operator to runtime:** only trusted operators should submit bundles to shared runtimes.
-- **Runtime to worker payload:** bundle code is application code, not trusted runtime code.
-- **Worker payload to local machine:** `HostLocal` runs directly on the host, so use it only for trusted payloads.
-- **Worker payload to sandbox:** OpenShell provides a stronger boundary, but policies and uploads still matter.
-- **Worker payload to external services:** outgoing calls can leak data or spend money.
-- **Cluster node to cluster node:** all nodes sharing the Erlang cookie can participate in the distributed runtime.
-- **Blob artifact HTTP:** BlobRef sharing is unauthenticated peer HTTP; keep artifact ports bound or published only inside trusted loopback, Docker, VPN, or LAN boundaries.
-- **Redis to runtime:** Redis is the lease and support authority; protect it like a control-plane database.
+- **Operator to runtime:** Only authorized users should be able to submit, inspect, or control jobs.
+- **Blueprint to runtime:** Blueprint code and skills are application code, not trusted parts of the MirrorNeuron runtime.
+- **Worker to host machine:** Code executed directly on the machine may access resources available to the operating-system user.
+- **Worker to sandbox:** Sandbox policies determine which files, processes, credentials, and network destinations are accessible.
+- **Worker to external service:** Outgoing requests may disclose data, create external actions, or incur charges.
+- **Runtime node to runtime node:** Machines in the same cluster should be treated as members of a shared trust domain.
+- **Runtime to storage:** Workflow state and artifacts may contain sensitive inputs, outputs, logs, and intermediate results.
+- **Network client to runtime:** Exposed API, database, and artifact ports may allow unauthorized access if they are not protected.
 
-## Safe Defaults
+## Protect local files and storage
 
-Use these defaults for local development:
+Local storage gives you ownership of your data, but you must still protect it.
+
+Recommended practices:
+
+- run MirrorNeuron under a dedicated operating-system account;
+- grant access only to the directories required by the blueprint;
+- avoid mounting an entire home directory into a worker or sandbox;
+- encrypt disks that store sensitive data;
+- restrict permissions on job artifacts and logs;
+- define retention and deletion policies;
+- back up important workflow state securely; and
+- avoid including secrets directly in blueprint files.
+
+Remember that logs and intermediate artifacts may contain portions of prompts, documents, model responses, commands, or external service results.
+
+## Protect network ports
+
+MirrorNeuron runtime services, databases, and artifact-sharing interfaces should remain on trusted networks.
+
+For single-machine use, bind services to localhost where possible:
 
 ```bash
 export MN_REDIS_URL="redis://127.0.0.1:6379/0"
@@ -67,114 +188,168 @@ export MN_API_PORT="54001"
 export MN_GRPC_PORT="55051"
 ```
 
-Recommended habits:
+Recommended practices:
 
-- Keep API and gRPC listeners on localhost for single-machine development.
-- Use a unique `MN_REDIS_NAMESPACE` for tests.
-- Use Open1Skill for code you do not fully trust.
-- Keep `pass_env` narrow and explicit.
-- Store provider keys in environment variables, not in manifests or payload files.
-- Review every third-party bundle before running it.
-- Use Redis Sentinel mode for multi-box reliability.
+- do not expose runtime ports directly to the public internet;
+- bind local services to `127.0.0.1` unless remote access is required;
+- use authentication for any non-local access;
+- use a firewall, VPN, or trusted private network between runtime nodes;
+- place externally accessible services behind a secure reverse proxy;
+- protect Redis as a control-plane database;
+- restrict artifact-sharing ports to trusted peers; and
+- periodically review which ports are listening.
 
-## Dangerous Configurations
-
-### Running HostLocal for Untrusted Payloads
-
-Risk:
-
-```json
-{
-  "runner": "host_local",
-  "command": "python3 worker.py"
-}
-```
-
-Safer alternative:
-
-- Use OpenShell for untrusted or shared-environment execution.
-- Keep HostLocal for trusted, local-only, deterministic helper code.
-
-### Passing Broad Secrets
-
-Risk:
-
-```json
-{
-  "pass_env": ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "GEMINI_API_KEY"]
-}
-```
-
-Safer alternative:
-
-- Pass only the one key a worker needs.
-- Use dry-run mode for email, Slack, and external delivery tests.
-- Rotate keys if a bundle or log may have exposed them.
-
-### Exposing Runtime Ports To Untrusted Networks
-
-Risk:
+Setting a service to listen on all interfaces can expose it beyond the local machine:
 
 ```bash
 export MN_API_HOST="0.0.0.0"
 ```
 
-Safer alternative:
+Use this configuration only when you have intentionally established an authentication and network-security boundary.
 
-- Bind to localhost unless a trusted network and auth boundary are in place.
-- Require API tokens for non-local API access.
-- Put the API behind a trusted reverse proxy if exposing it beyond a development machine.
+## Protect credentials
 
-### Two-Box Sentinel Quorum In Production
+Blueprints may require API keys, database credentials, email credentials, or service tokens.
 
-Risk:
+Pass only the credentials required for a specific job.
 
-```bash
-export MN_REDIS_SENTINEL_QUORUM="1"
+Avoid giving one worker broad access to unrelated services:
+
+```json
+{
+  "pass_env": [
+    "AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY",
+    "EMAIL_API_KEY",
+    "MODEL_PROVIDER_API_KEY"
+  ]
+}
 ```
 
-Safer alternative:
+Safer practices include:
 
-- Use at least three Sentinel voters for production.
-- Treat two-box quorum `1` as a development smoke-test setup only.
+- provide only the minimum credential required;
+- use credentials scoped to a specific service and action;
+- prefer read-only credentials where possible;
+- keep credentials out of manifests, payloads, and source control;
+- use dry-run modes for communication and delivery skills;
+- prevent secrets from appearing in logs;
+- rotate credentials after suspected exposure; and
+- use separate credentials for development and production.
 
-## Bundle Review Checklist
+## Protect clustered deployments
 
-Before running a bundle from another person or repository:
+A MirrorNeuron cluster is a shared trust domain.
 
-- Read `manifest.json`.
-- Inspect `payloads/` for scripts, package files, templates, and data.
-- Check `runner`, `command`, `uploads`, `env`, and `pass_env`.
-- Check OpenShell `policy` files.
-- Check whether the workflow is a service.
-- Check whether workers call external APIs or model providers.
-- Check retry policies and backpressure settings.
-- Run `mn blueprint validate <bundle>` before `mn blueprint run --folder <bundle>`.
+A machine with valid cluster credentials may be able to participate in runtime operations or communicate with other nodes. Only connect machines that you control and trust.
 
-## Skill Review Checklist
+Recommended practices:
 
-Before installing or publishing a skill:
+- use unique cluster credentials;
+- keep cluster traffic on a private LAN, VPN, or isolated network;
+- restrict connections with host firewalls;
+- remove credentials from retired or compromised machines;
+- protect Redis and shared artifact services;
+- monitor which nodes are connected; and
+- do not allow untrusted users to join the cluster.
 
-- Read the full README or skill instructions.
-- Check commands the skill asks workers or operators to run.
-- Check network calls and API destinations.
-- Check file access patterns.
-- Avoid hidden install scripts.
-- Run tests in a sandbox or disposable environment.
+For production high availability, use an appropriate Redis deployment with sufficient independent voters. Two-machine configurations with a quorum of one should be treated as development or testing configurations rather than strong production fault tolerance.
 
-## Reporting Vulnerabilities
+## Before running a blueprint
 
-If you find a vulnerability, do not open a public issue with exploit details. Use the project's GitHub security reporting channel or contact the maintainers privately.
+Review the following before giving a blueprint access to real data:
+
+- Read the blueprint manifest.
+- Inspect all payload files, scripts, templates, and package definitions.
+- Identify every skill the blueprint can use.
+- Check which files and directories it can access.
+- Check whether it executes existing or generated code.
+- Check whether it installs packages or downloads files.
+- Review all environment variables and credentials it receives.
+- Review all allowed network destinations.
+- Identify every external model, API, connector, or service.
+- Review sandbox policies and uploaded files.
+- Confirm where state, logs, and artifacts will be stored.
+- Determine whether the workflow operates continuously as a service.
+- Test the blueprint with non-sensitive data first.
+- Validate the blueprint before running it.
+
+```bash
+mn blueprint validate <bundle>
+```
+
+Run the blueprint only after validation and review:
+
+```bash
+mn blueprint run --folder <bundle>
+```
+
+Validation can identify declared requirements and structural problems. It cannot prove that third-party code is safe or that a blueprint's behavior matches your expectations.
+
+## Before installing a skill
+
+A skill can expand what an AI agent is able to see and do.
+
+Before installing or publishing one:
+
+- read its complete instructions and documentation;
+- inspect its source code;
+- check every command it executes;
+- check its package installation steps;
+- identify all network destinations;
+- review its file access patterns;
+- identify the credentials it requires;
+- avoid hidden or remotely downloaded installation scripts;
+- test it in a sandbox or disposable environment; and
+- confirm that it complies with your offline or air-gapped policy.
+
+A skill that requires internet access is not compatible with a strictly air-gapped deployment unless it is replaced with a local equivalent.
+
+## Successful execution does not guarantee a correct decision
+
+A completed job means the blueprint reached its defined completion state. It does not mean that its conclusions are correct, authoritative, or safe to act on without review.
+
+Finance, legal, medical, safety, compliance, and investment blueprints should produce:
+
+- evidence;
+- traceable actions;
+- assumptions;
+- supporting material;
+- uncertainty; and
+- recommendations for human review.
+
+They should not replace qualified professional judgment or an organization's approval process.
+
+## Recommended security posture
+
+For sensitive workloads:
+
+1. Use local models and local storage.
+2. Review every blueprint and skill.
+3. Run autonomous or generated code inside NVIDIA OpenShell.
+4. Grant access only to required files and credentials.
+5. Block network access by default.
+6. Allow only explicitly required external destinations.
+7. Keep runtime ports on trusted networks.
+8. Test first with non-sensitive data.
+9. Review job actions, evidence, logs, and artifacts.
+10. Use an air-gapped environment when the workload must remain completely offline.
+
+## Reporting vulnerabilities
+
+If you find a security vulnerability, do not publish exploit details in a public issue.
+
+Use the project's private GitHub security-reporting channel or contact the maintainers directly.
 
 Include:
 
-- affected component
-- reproduction steps
-- expected and actual behavior
-- impact
-- suggested fix, if known
+- the affected component;
+- reproduction steps;
+- expected and actual behavior;
+- potential impact; and
+- a suggested fix, when known.
 
-## Related Pages
+## Related pages
 
 - [Installation](/installation)
 - [Blueprints and Skills](/blueprints-and-skills)
