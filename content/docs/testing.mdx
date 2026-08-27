@@ -1,17 +1,18 @@
 ---
-title: Testing Guide
-description: A guide to testing strategies, layouts, and common commands for the MirrorNeuron project.
+title: "MirrorNeuron Testing Guide"
+description: "This workspace is intentionally multi-component. Tests should stay with the component they verify, while mn-system-tests/testall.py provides cross-component orchestration."
 ---
 
 # MirrorNeuron Testing Guide
 
 This workspace is intentionally multi-component. Tests should stay with the component they verify, while `mn-system-tests/test_all.py` provides cross-component orchestration.
 
-## Before you begin
+## Reader and outcome
 
-- Run commands from the workspace root unless a command says otherwise.
-- Create the workspace virtual environment described in [Contributing](/contributing), then use `.venv/bin/python` so the command does not depend on shell activation.
-- Start Docker, Redis, or local services only for a test tier that requires them.
+- **Reader:** contributor selecting validation for a change.
+- **Outcome:** run the smallest relevant check, then expand validation when a shared contract changes.
+- **Page type:** contributor reference.
+- **Source of truth:** component test suites and `mn-system-tests/test_all.py --help`.
 
 ## Test Layout
 
@@ -20,7 +21,7 @@ Preferred layout for new tests:
 - `tests/unit/`: pure logic, config parsing, command formatting, manifest validation, component-local behavior.
 - `tests/integration/`: one component talking to another through a stable interface, such as CLI to gRPC or API to gRPC.
 - `tests/regression/`: focused repros for previously fixed bugs.
-- `tests/e2e/`: runtime workflows, live API/CLI flows, Docker or service-backend checks.
+- `tests/e2e/`: runtime workflows, live API/CLI flows, Docker or service-backed checks.
 
 Current component mapping:
 
@@ -29,8 +30,9 @@ Current component mapping:
 - `MirrorNeuron/tests/e2e`: runtime and stream/live execution e2e tests.
 - `MirrorNeuron/tests/regression`: script-style regression repros.
 - `mn-api/tests`, `mn-cli/tests`, `mn-python-sdk/tests`, `mn-web-ui/src/test`: component unit tests today. Split these into `unit/`, `integration/`, `regression/`, and `e2e/` as each package grows.
+- `mn-system-tests/contracts`: fast injected API/CLI/SDK contract tests that do not need Redis, Elixir, Docker, or gRPC.
 - `mn-system-tests/integration` and `mn-system-tests/e2e`: live cross-component tests. These are opt-in because they need running services.
-- `otterdesk-blueprints/*/tests` and `mn-skills/*/tests`: blueprint and skill package tests.
+- `otterdesk-blueprints/tests` and `mn-skills/*/tests`: blueprint catalog and skill package tests.
 
 ## Common Commands
 
@@ -38,6 +40,12 @@ Fast local signal:
 
 ```bash
 .venv/bin/python mn-system-tests/test_all.py --fast
+```
+
+Injected cross-component contracts:
+
+```bash
+.venv/bin/python mn-system-tests/test_all.py --contracts
 ```
 
 Component unit tests, including Node and core when dependencies are present:
@@ -50,6 +58,22 @@ Blueprint quick checks without external APIs:
 
 ```bash
 .venv/bin/python mn-system-tests/test_all.py --blueprints
+```
+
+Key interface performance benchmark:
+
+```bash
+.venv/bin/python mn-system-tests/test_all.py --performance
+```
+
+This records `mn-system-tests/results/performance.txt` and
+`mn-system-tests/results/performance.json` with hardware, software, package,
+git, latency, and throughput metadata.
+
+Changed workspace checks:
+
+```bash
+.venv/bin/python mn-system-tests/test_all.py --changed
 ```
 
 Core runtime e2e, including stream/live backpressure:
@@ -82,6 +106,18 @@ Full default non-live suite:
 ```bash
 .venv/bin/python mn-system-tests/test_all.py
 ```
+
+Offline pytest gate:
+
+```bash
+cd mn-system-tests
+../.venv/bin/python -m pytest contracts benchmarks installer -q
+```
+
+`test_all.py` records every runner-driven suite under
+`mn-system-tests/results/`: `system-tests.txt`, `system-tests.json`,
+`pytest-*.json`, and raw per-step logs in `results/logs/`. Use
+`--results-dir PATH` or `MN_SYSTEM_TEST_RESULTS_DIR` to redirect artifacts in CI.
 
 ## Manual Live E2E
 
@@ -128,6 +164,7 @@ Two-box Docker test:
 
 ```bash
 cd MirrorNeuron
+
 bash scripts/test_redis_sentinel_two_box_ha.sh \
   --remote-host <remote-host> \
   --local-ip <local-host> \
@@ -179,25 +216,35 @@ Core areas to keep covered:
 | Deployments | Rolling, canary isolation, promotion, rollback, service discovery roles. |
 | Schedules and events | Cron parsing, timezone, delayed runs, overlap prevention, missed policies, event filters, idempotent dispatch. |
 
-Two-box cluster checks should use a shared Redis namespace and sync the remote workspace through Git rather than editing files directly on the remote machine.
+Two-box federation checks must use distinct writable Redis identities. Sync the
+remote workspace through a fast-forward Git update and exact commit parity;
+never edit tracked files directly on the remote machine.
 
-Typical joined-cluster verification:
+Typical federation verification:
 
 ```bash
+# Run once on each node
 mn runtime start
-mn runtime start --worker-node
-mn node join <worker-ip> --token <worker-token>
+
+# Run the command printed by the joining node on an existing peer
+mn node add <peer-ip> --token <join-token> --grpc-port 55051
 mn node list
-mn resource list
+mn resource show
 ```
 
 Then run targeted system tests for:
 
-- one due schedule dispatching exactly once across both boxes
-- `system` jobs expanding across both eligible nodes
-- service jobs moving from a drained node to the other node
-- resource placement avoiding a node without the requested CUDA/Metal/device capability
-- required service preflight blocking before agents launch
+- reciprocal readiness and the absence of BEAM membership;
+- one owner-local job on each Core, with no cross-node agent placement;
+- owner autonomy and stale projections during a network partition;
+- explicit and automatic owner selection from resource/model capabilities;
+- owner-LiteLLM-first local and remote gateway routing; and
+- secret redaction in topology artifacts, reports, and diagnostics.
+
+`cluster.federation.local` is an ungated deterministic CI topology. The gated
+two-box `cluster.federation`, `cluster.storage`, `cluster.job-controls`,
+`cluster.models`, `cluster.scale`, and `cluster.llm-live` suites cover the real
+network boundary after both hosts are on the same commit.
 
 ## Environment Rules
 
@@ -211,9 +258,13 @@ Useful test isolation vars:
 - `MN_REDIS_NAMESPACE`: isolate Redis keys per test run.
 - `MN_ENV=test`: use test-mode validation where appropriate.
 - `MN_API_TOKEN`: test API bearer auth.
+- `MN_BENCHMARK_WORKER_COUNT`: worker count for the generated live parallel-worker smoke test; defaults small for local runs and can be set to `100` for stress checks.
+- `MN_PERF_ITERATIONS`: measured iterations per performance probe; defaults to `30`.
+- `MN_PERF_WARMUP`: warmup iterations per performance probe; defaults to `5`.
+- `RUN_MN_PERF_LIVE`: set to `1` to add live API, gRPC, LLM, or Web UI interface probes.
 
-Live tests are opt-in. If `RUN_MN_SYSTEM_TESTS=1` is not set, `mn-system-tests` marks integration/e2e tests skipped.
+Live tests are opt-in. If `RUN_MN_SYSTEM_TESTS=1` is not set, `mn-system-tests` marks `live` tests skipped.
 
 ## Test-selection rule
 
-For a cross-component regression, prefer an injected contract test before adding a live test. Add live integration or end-to-end coverage only when the behavior depends on a running service, Docker, Redis, network topology, or another external capability that an injected test cannot represent.
+For a cross-component regression, prefer `mn-system-tests/contracts` with injected clients or openers before adding a live test. Add a live integration or end-to-end check only when the behavior depends on a running service, Docker, Redis, network topology, or an external capability that an injected test cannot represent.

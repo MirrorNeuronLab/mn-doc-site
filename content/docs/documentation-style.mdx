@@ -1,61 +1,109 @@
 ---
-title: "Documentation Style"
-description: "Author and review implementation-backed MirrorNeuron documentation."
+title: "MirrorNeuron Documentation Standard"
+description: "This page governs documentation in mn-docs and its concise counterpart in mn-doc-site/content/docs. mn-docs is the detailed internal and contributor source of truth; the…"
 ---
 
-# Documentation Style
+# MirrorNeuron Documentation Standard
 
-Use this guide when you create or substantially update a MirrorNeuron documentation page. Documentation is part of the product: it must help a named reader reach a safe, observable outcome without guessing.
+This page governs documentation in `mn-docs` and its concise counterpart in `mn-doc-site/content/docs`. `mn-docs` is the detailed internal and contributor source of truth; the documentation site is the task-oriented public layer. Update both when a user-visible fact changes.
 
-## Write a brief before drafting
+## Documentation mission
 
-Record the following in the issue, pull request, or page draft:
+A page is successful only when a named reader can understand a boundary, complete a task, look up a contract, diagnose a failure, or make a small correct contribution without guessing.
 
-| Item | What to define |
+Priority reader outcomes:
+
+1. An evaluator can decide whether MirrorNeuron fits a workload and risk model.
+2. A first-time developer can install the runtime and complete a safe, verified workflow preflight.
+3. An operator can identify the next diagnostic action from an observable failure.
+4. A contributor can locate the owning component, run validation, and prepare a focused pull request.
+
+## Required documentation brief
+
+Before a substantial new page or rewrite, record:
+
+| Field | Required detail |
 | --- | --- |
-| Reader | Evaluator, application developer, blueprint author, operator, integrator, contributor, or maintainer. |
-| Outcome | One observable result the reader can achieve. |
+| Reader | Evaluator, developer, blueprint author, operator, integrator, contributor, or maintainer. |
+| Outcome | One observable reader result. |
 | Page type | Tutorial, how-to, reference, explanation, troubleshooting, migration, or decision record. |
-| Scope | The exact command, API, component, workflow, or behavior covered. |
-| Out of scope | Nearby topics intentionally excluded. |
-| Sources of truth | Code, CLI help, tests, schemas, generated API definitions, or release artifacts used to verify claims. |
-| Validation | The documentation build and the smallest relevant product command or test. |
+| Scope and exclusions | Exact behavior covered and nearby topics intentionally excluded. |
+| Maturity | Experimental, preview, stable, deprecated, or removed; cite a release/compatibility source. |
+| Sources of truth | Code, tests, schemas, CLI/API definitions, release artifacts, or reproducible runtime evidence. |
+| Validation | Documentation checks and the smallest relevant product command/test. |
 
-## Keep page types distinct
+Do not claim maturity, support, compatibility, performance, privacy, or reliability without an implementation or release source that defines the boundary.
 
-| Type | Reader need | Required content |
+## Page types
+
+| Type | Reader question | Required structure |
 | --- | --- | --- |
-| Tutorial | Learn a complete first experience. | Prerequisites, ordered steps, verification, cleanup, and next steps. |
-| How-to | Complete one operational task. | Assumptions, procedure, verification, rollback, and symptom-led help. |
-| Reference | Look up exact facts. | Declared scope, exact syntax or fields, defaults, side effects, errors, and small examples. |
-| Explanation | Understand a design choice. | Problem, mental model, boundaries, guarantees, non-guarantees, failures, and tradeoffs. |
-| Troubleshooting | Recover from an observable failure. | Symptom, likely causes, read-only diagnostics, resolution, verification, and escalation evidence. |
+| Tutorial | “Can you guide me through a complete first experience?” | Prerequisites, ordered steps, verification, explanation, cleanup, next steps. |
+| How-to | “How do I complete this task?” | Assumptions, numbered procedure, verification, rollback, symptom-led help. |
+| Reference | “What exactly is this command, field, or API?” | Scope, syntax/fields, defaults, constraints, side effects, errors, small examples. |
+| Explanation | “Why does this work this way?” | Problem, mental model, boundaries, guarantees, non-guarantees, failures, tradeoffs. |
+| Troubleshooting | “Why did this fail?” | Exact symptom, likely causes, read-only diagnostics, resolution, verification, escalation evidence. |
+| Migration | “How do I move from an old contract?” | Impact, backup/preflight, steps, verification, rollback, changed behavior. |
 
-Do not turn a reference page into a tutorial or hide operational procedures inside architecture prose. Link to the canonical page instead.
+Do not combine a deep architecture essay, a command reference, and a tutorial on one page. Keep one canonical explanation, then link to it from task pages.
 
-## Commands and examples
+## Canonical-content policy
 
-- Use fenced `bash`, `json`, `python`, `text`, or other appropriate code blocks.
-- State the working directory when it matters.
-- Use only commands verified against CLI help, tests, schemas, or a representative runtime.
-- Use a checked-in example only when its requirements and safety boundaries are documented.
-- Use placeholders such as `<job_id>` and define them immediately after the block.
-- Show a stable success marker only when it is verified. Otherwise tell the reader which command exit status or observable state proves success.
-- Include cleanup for jobs, services, ports, generated files, or persistent state created by the procedure.
+| Information | Canonical detailed page |
+| --- | --- |
+| Project fit and non-guarantees | `why-mirrorneuron.md` |
+| Shared vocabulary | `core-concepts.md` |
+| CLI syntax and flags | `cli.md`, generated from/checked against `mn --help` |
+| REST API shapes | `api.md`, checked against `mn-api` routes and OpenAPI schema |
+| Configuration keys | `env_variables.md`, checked against configuration schemas |
+| Manifest and bundle fields | `blueprint-standard.md` and `bundle.md` |
+| Architecture and tradeoffs | `runtime-architecture.md`, `cluster_architecture.md`, `reliability.md` |
+| Security boundaries | `security.md` |
+| Operational recovery | `troubleshooting.md`, `redis-ha.md`, cluster/deployment guides |
 
-## Accuracy and safety
+Do not copy a large table or procedure into another page. Keep a short context-specific summary and link to the canonical page.
 
-- Use the implementation as the source of truth. Never infer a command, default, port, guarantee, or compatibility policy.
-- Keep one canonical page for durable facts such as CLI syntax, API contracts, environment variables, and manifest fields.
-- State what a feature does not guarantee, especially for retries, external side effects, local execution, sandboxing, privacy, and clustering.
-- Warn before actions that delete data, expose listeners, pass secrets into worker code, execute unreviewed bundles, or join a cluster trust domain.
-- Do not publish agent instructions, release procedures, templates, obsolete diagrams, or references to removed components as product documentation.
+## Technical accuracy rules
 
-## Review checklist
+- Use the strongest available source: public contract/schema, automated test, implementation code, then reproducible runtime behavior.
+- Never invent commands, flags, defaults, paths, expected output, APIs, compatibility, or guarantees.
+- State the working directory and required environment/services for runnable commands.
+- Use checked-in examples only when their requirements and safety boundaries are documented.
+- Do not use `...` in a command presented as runnable. Use a defined angle-bracket placeholder instead.
+- Show a stable success marker only when it was verified. Otherwise state the exit status or observable condition that proves success.
+- Distinguish a completed job from a correct domain result; describe required artifact review and human control.
 
-- [ ] The title, reader, outcome, and primary page type are clear in the opening screen.
-- [ ] Important claims cite or were checked against an authoritative implementation source.
-- [ ] Commands, links, examples, and stated defaults were validated.
-- [ ] Each state-changing procedure includes verification and applicable cleanup or rollback.
-- [ ] Security, data movement, secrets, network exposure, and non-guarantees are visible where relevant.
-- [ ] Related pages point to the next useful action.
+## Security and reliability requirements
+
+Document these boundaries wherever they affect the reader's decision:
+
+- runner type and privilege boundary;
+- files, secrets, environment variables, ports, and external services available to workers;
+- data that can leave the local environment;
+- Redis/run-store persistence and data-retention behavior;
+- retries, timeouts, idempotency expectations, and manual intervention;
+- cluster trust, listener exposure, and cleanup/data-loss risk.
+
+Use a prominent warning before deleting state, exposing a listener, passing secrets into worker code, executing an unreviewed bundle, disabling validation/authentication, or joining a cluster trust domain.
+
+## Required validation
+
+For every documentation pull request:
+
+1. Run a local-link audit and Markdown/MDX syntax check.
+2. Build or type-check `mn-doc-site` when it changes.
+3. Run the smallest relevant CLI/API/component test for each documented behavior.
+4. Inspect rendered diagrams when a Mermaid diagram changes.
+5. Record commands run, sources verified, and untested limitations in the pull request.
+
+Do not merge when a runnable command is untested but presented as a verified path, a destructive operation lacks a warning/recovery path, or a claim conflicts with code/tests/schemas.
+
+## Contribution checklist
+
+- [ ] Reader, outcome, page type, scope, and prerequisites are explicit.
+- [ ] Important claims were verified against an authoritative source.
+- [ ] Commands use current syntax and define placeholders.
+- [ ] State-changing procedures include verification and cleanup or rollback.
+- [ ] Security, privacy, listener exposure, secrets, and non-guarantees are visible where relevant.
+- [ ] Internal links work in the documentation site and repository context.
+- [ ] `mn-docs` and `mn-doc-site` are both updated when the fact is user-facing.

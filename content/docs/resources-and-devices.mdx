@@ -1,6 +1,6 @@
 ---
 title: "Resources And Devices"
-description: "Documentation for Resources And Devices."
+description: "MirrorNeuron supports a stronger resource model for scheduling AI workers across mixed machines. This model is inspired by Nomad's resources, device, network, and volume ideas,…"
 ---
 
 # Resources And Devices
@@ -200,7 +200,7 @@ Worker code should use these hints when selecting devices, ports, and model/cach
 ## Inspect Resources
 
 ```bash
-mn resource list
+mn resource show
 ```
 
 The response includes per-node scalar totals, combined cluster totals, device inventory, GPU memory totals, runtime drivers, and host path information when available.

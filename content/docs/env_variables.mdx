@@ -1,125 +1,131 @@
 ---
 title: "Runtime Configuration Reference"
-description: "Configure MirrorNeuron CLI, API, runtime, blueprint catalog, and local model connections."
+description: "This is the canonical internal reference for shared MirrorNeuron configuration. It covers the CLI, FastAPI gateway, runtime connection, Web UI, local models, and…"
 ---
 
 # Runtime Configuration Reference
 
-Use this page to configure the deployed MirrorNeuron CLI, FastAPI gateway, Web UI, runtime connection, and blueprint catalog. It covers shared operator-facing settings, not every blueprint-specific variable; a blueprint's `manifest.json` and configuration files define its own inputs, model settings, and permitted environment access.
+This is the canonical internal reference for shared MirrorNeuron configuration. It covers the CLI, FastAPI gateway, runtime connection, Web UI, local models, and blueprint-catalog resolution. Blueprint-specific configuration belongs in the owning manifest and configuration files.
 
-## Before you change configuration
+## Sources of truth
 
-- Run `mn runtime status` to record the active endpoints and runtime state.
-- Keep a copy of any deployment-specific configuration and remove secrets before sharing it.
-- Restart or re-check affected services after changing a listener, connection target, model, or catalog source.
-- Use a unique `MN_REDIS_NAMESPACE` for isolated test runs.
+- CLI parsing/defaults: `mn-cli/mn_cli/config.py`.
+- API parsing/defaults: `mn-api/mn_api/config_schema.py` and `mn-api/mn_api/config.py`.
+- Blueprint catalog resolution: `mn-python-sdk/mn_sdk/blueprint_source.py`.
+- Deployment/runtime publication: `mn-cli/mn_cli/runtime/server.py`, `mn-deploy/install.sh`, and `mn-deploy/docker-compose.yml`.
+
+Update this page and `mn-doc-site/content/docs/env_variables.mdx` whenever a parser, default, validation rule, or secret classification changes.
+
+## Inspect before changing state
+
+```bash
+mn runtime status
+mn runtime status
+```
+
+Save sanitized output before changing listener, connection, catalog, model, or credential configuration. Do not commit `~/.mn/docker-compose.env`, endpoint files, or secrets.
 
 ## Runtime state and client connection
 
-| Variable | Default | Purpose |
+| Variable | Default | Behavior |
 | --- | --- | --- |
-| `MN_ENV` | `dev` | Runtime environment. Use `prod` only with a reviewed production configuration. |
-| `MN_HOME` | `~/.mn` | Local state root for runtime metadata, endpoint files, logs, models, and default run records. |
-| `MN_GRPC_TARGET` | `localhost:55051` for the CLI | Core gRPC target used by CLI and SDK clients. |
-| `MN_GRPC_TIMEOUT_SECONDS` | `10` | Per-RPC timeout for CLI, SDK, and API clients. |
-| `MN_GRPC_AUTH_TOKEN` | unset | Bearer token for a protected gRPC gateway. Treat as a secret. |
-| `MN_GRPC_ADMIN_TOKEN` | unset | Administrative gRPC token. Treat as a secret. |
-| `MN_REDIS_URL` | deployment-specific | Redis connection URL used for runtime state. |
-| `MN_REDIS_NAMESPACE` | `mirror_neuron` | Redis key namespace. Use a separate value for tests. |
-| `MN_COOKIE` | deployment-specific | Cluster credential. Change it before forming a non-local cluster and treat it as a secret. |
+| `MN_ENV` | `dev` | CLI/API environment. Use `prod` only with intentional authentication and secret configuration. |
+| `MN_HOME` | `~/.mn` | State root for endpoints, logs, models, and default run records. |
+| `MN_GRPC_TARGET` | `localhost:55051` in CLI | Core gRPC target. |
+| `MN_GRPC_TIMEOUT_SECONDS` | `10` | Per-RPC timeout. |
+| `MN_GRPC_AUTH_TOKEN` | unset | Sensitive gRPC bearer token. |
+| `MN_GRPC_ADMIN_TOKEN` | unset | Sensitive administrative token. |
+| `MN_REDIS_URL` | deployment-specific | Runtime state-store URL. |
+| `MN_REDIS_NAMESPACE` | `mirror_neuron` | Redis namespace; use a separate value for isolated tests. |
+| `MN_COOKIE` | deployment-specific | Sensitive cluster credential. Change before non-local cluster use. |
 
-The deployed gRPC endpoint is normally published on port `55051`; the Core container can use a distinct internal port. Use `mn runtime status` instead of assuming a port after a custom deployment.
+The deployed gRPC endpoint is normally published on port `55051`; the Core container can use a distinct internal port. Confirm actual endpoints with `mn runtime status` after custom deployment.
 
-## REST API and Web UI
+## FastAPI gateway and Web UI
 
-| Variable | Default | Purpose |
+| Variable | Default | Behavior |
 | --- | --- | --- |
-| `MN_API_HOST` | `localhost` | FastAPI bind host. Binding beyond localhost changes the network trust boundary. |
+| `MN_API_HOST` | `localhost` | FastAPI bind host. The installer defaults it to `0.0.0.0` when the Compose Web UI is enabled so the container can proxy to the host API. |
 | `MN_API_PORT` | `54001` | FastAPI bind port. |
-| `MN_API_BASE_URL` | unset | External API base URL when it differs from the local default. |
-| `MN_API_TOKEN` | unset | Enables bearer-token API authentication when configured. Treat as a secret. |
-| `MN_API_REQUEST_SIZE_LIMIT_BYTES` | `5242880` | Maximum API request-body size in bytes. |
+| `MN_API_BASE_URL` | unset | External API base URL; must be absolute HTTP(S) when set. |
+| `MN_API_TOKEN` | unset | Sensitive bearer token for protected API deployments. |
+| `MN_API_REQUEST_SIZE_LIMIT_BYTES` | `5242880` | Maximum request body size. |
 | `MN_API_CORS_ALLOW_ORIGINS` | unset | Comma-separated CORS allowlist. |
-| `MN_WEB_UI_HOST` | `localhost` | Web UI bind host. |
-| `MN_WEB_UI_PORT` | `55173` | Web UI bind port. |
+| `MN_WEB_UI_HOST` | `localhost` | Web UI endpoint host reported by the CLI. |
+| `MN_WEB_UI_PORT` | `55173` | Web UI published/container port. |
+| `MN_WEB_UI_BIND_HOST` | `127.0.0.1` | Compose host address for publishing the Web UI port. |
+| `MN_WEB_UI_SOURCE_MODE` | installer-selected | `package` for binary installs; `source` for local/GitHub installs. |
+| `MN_WEB_UI_SOURCE_MOUNT` | installer-selected | Read-only source mount consumed by the Compose Web UI service. |
+| `MN_WEB_UI_PACKAGE_VERSION` | selected release | Published package version installed inside the Compose service in package mode. |
+| `MN_WEB_UI_API_HOST` | `host.docker.internal` | API host used by the Web UI container proxy. |
 | `MN_WEB_UI_API_BASE_URL` | unset | Web UI upstream API URL. |
-| `MN_WEB_UI_PROXY_TIMEOUT_SECONDS` | `30` | Web UI upstream request timeout in seconds. |
+| `MN_WEB_UI_PROXY_TIMEOUT_SECONDS` | `30` | Web UI upstream timeout in seconds. |
 
-Warning: `MN_API_HOST` or `MN_WEB_UI_HOST` values that expose a listener beyond localhost require a deliberate network and authentication design. Do not rely on CORS as an authentication boundary.
+Warning: CORS does not authenticate requests. A non-localhost bind requires firewall, reverse-proxy, authentication, and security-documentation review.
 
-## Blueprint catalog source
+## Blueprint catalog resolution
 
-| Variable | Default | Purpose |
+| Variable | Default | Behavior |
 | --- | --- | --- |
-| `MN_BLUEPRINT_SOURCE` | `github` | Selects `github` or `local` catalog resolution. |
-| `MN_BLUEPRINT_REPO` | SDK default repository when source is `github` | Git URL for the catalog. |
-| `MN_BLUEPRINT_LOCAL` | unset | Local catalog directory when source is `local`; it must contain `index.json`. |
-| `MN_BLUEPRINT_REPO_CACHE` | `~/.cache/mirror-neuron/blueprint-repos` | Cache root for checked-out catalog repositories. |
-
-Example local catalog configuration:
+| `MN_BLUEPRINT_SOURCE` | `github` | Must be `github` or `local`. |
+| `MN_BLUEPRINT_REPO` | SDK default repository for Git source | Must be a Git URL when source is `github`. |
+| `MN_BLUEPRINT_LOCAL` | unset | Required for local source; must be an existing directory containing `index.json`. |
+| `MN_BLUEPRINT_REPO_CACHE` | `~/.cache/mirror-neuron/blueprint-repos` | Catalog checkout cache root. |
 
 ```bash
 export MN_BLUEPRINT_SOURCE="local"
 export MN_BLUEPRINT_LOCAL="/absolute/path/to/blueprint-catalog"
-```
-
-Verify the source before launching a catalog ID:
-
-```bash
 mn blueprint list
 ```
 
-Use `mn blueprint run --folder <folder>` for a reviewed local blueprint folder when you do not need catalog resolution.
+## Models, launch controls, and logs
 
-## Local model and launch controls
-
-| Variable | Default | Purpose |
+| Variable | Default | Behavior |
 | --- | --- | --- |
-| `MN_LLM_PROVIDER` | blueprint-specific | Selected model provider. |
+| `MN_LLM_PROVIDER` | blueprint-specific | Model provider. |
 | `MN_LLM_MODEL` | blueprint-specific | Model name passed to the worker/provider. |
 | `MN_LLM_RUNTIME_MODEL` | blueprint-specific | Runtime-managed model reference. |
-| `MN_LLM_API_BASE` | provider-specific | OpenAI-compatible model API base when used by the blueprint. |
-| `MN_LLM_API_KEY` | unset | Model-provider key. Treat as a secret and pass it only to approved workers. |
+| `MN_LLM_API_BASE` | provider-specific | OpenAI-compatible API base when used. |
+| `MN_LLM_API_KEY` | unset | Sensitive provider key. |
 | `MN_PRE_LAUNCH_TIMEOUT_SECONDS` | `30` | Pre-launch timeout in seconds. |
 | `MN_POST_LAUNCH_TIMEOUT_SECONDS` | `10` | Post-launch timeout in seconds. |
-| `MN_RUN_BACKGROUND_EVENT_RELAY` | `1` | Enables background event relay for launched runs. |
-
-Use `mn model doctor <model-id>` before launching a blueprint that requires a local Docker Model Runner model. Do not put provider keys in a manifest or a committed configuration file.
-
-## Logging and CLI behavior
-
-| Variable | Default | Purpose |
-| --- | --- | --- |
 | `MN_LOG_LEVEL` | `INFO` | Process log level. |
-| `MN_LOGS_ROOT` | `~/.mn/logs` | Default log directory. |
-| `MN_LOG_MAX_BYTES` | `1048576` | Rotating process-log size in bytes. |
-| `MN_LOG_BACKUP_COUNT` | `5` | Rotated process-log files to retain. |
-| `MN_CLI_OUTPUT` | `rich` | Set to `plain` for non-Rich terminal output. |
-| `MN_RUN_DETACH_LOG_SECONDS` | `30` | How long the CLI follows events after submitting a run. |
-| `MN_RUN_LOG_POLL_INTERVAL_SECONDS` | `0.5` | CLI polling interval while collecting run events. |
+| `MN_LOGS_ROOT` | `~/.mn/logs` | Default log root. |
+| `MN_CLI_OUTPUT` | `rich` | CLI rendering mode; `plain` disables Rich formatting. |
 
-## Verify a configuration change
+Validate models and blueprint requirements with `mn model doctor <model-id>` and `mn blueprint validate <folder>`. Do not use `--force` as a routine fix for a failed hardware check.
 
-After changing shared configuration, restart or re-check the affected services:
+## Shared storage and node-local caches
 
-```bash
-mn runtime health
-mn runtime status
-```
+| Variable | Default | Behavior |
+| --- | --- | --- |
+| `MN_SHARED_STORAGE_ROOT` | `$MN_HOME/shared` | Synchronized job storage. Multi-node submissions and executable bundle cache entries remain here. |
+| `MN_BLUEPRINT_PYTHON_ENVS_DIR` | `$MN_HOME/cache/blueprint-python-envs` | Node-local derived HostLocal virtual-environment cache. An explicit path remains supported, but `mn blueprint doctor` warns when that path is inside synchronized storage. |
+| `MN_CHECKPOINT_ROOT` | `$MN_HOME/checkpoints` | Node-local compatibility checkpoint directory. Redis remains the recovery authority. |
+| `MN_SYNCTHING_ENABLED` | `auto` | Starts and configures the shared-storage Syncthing sidecar unless explicitly disabled. |
+| `MN_SYNCTHING_REQUIRED` | unset | When truthy, fail startup or join instead of warning when Syncthing cannot be prepared. |
+| `MN_SYNCTHING_RESCAN_INTERVAL_SECONDS` | `3600` | Periodic fallback rescan interval. Invalid and non-positive runtime values fall back to `3600`; filesystem watching remains enabled with a 10-second coalescing delay. |
 
-For API configuration, also check:
+MirrorNeuron installs rooted Syncthing ignores for `blueprint-python-envs`,
+`blueprint-python-sources`, and `checkpoints` separately on every peer while
+preserving operator-defined ignore lines. The `.stignore` file is node-local
+and is not replicated by Syncthing.
 
-```bash
-curl -s http://localhost:54001/api/v1/health
-```
+There is no automatic submission retention. Inputs, intermediate artifacts, and
+outputs remain synchronized until the existing job or run deletion workflow
+removes them. See [Cluster Guide](cluster.mdx)
+for the upgrade and legacy-cache cleanup procedure.
 
-Replace the URL when you changed `MN_API_HOST` or `MN_API_PORT`.
+## Contributor verification
 
-## Related information
+After changing shared configuration, run `mn runtime status` and `mn runtime status`. Also run `mn blueprint list` for catalog changes, `mn model doctor <model-id>` for model changes, and API health checks for API configuration changes.
 
-- [CLI Reference](/cli)
-- [API Reference](/api)
-- [Model Runtime](/model-runtime)
-- [Cluster Guide](/cluster)
-- [Redis High Availability](/redis-ha)
-- [Security Model](/security)
+Configuration changes require parser/schema tests, secret-redaction review where applicable, this reference, the docs-site reference, and a documentation-site type check.
+
+## Related pages
+
+- [CLI Reference](cli.mdx)
+- [API Reference](api.mdx)
+- [Model Runtime](model-runtime.mdx)
+- [Cluster Guide](cluster.mdx)
+- [Security Model](security.mdx)

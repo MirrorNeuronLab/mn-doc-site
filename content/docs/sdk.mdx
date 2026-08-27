@@ -1,6 +1,6 @@
 ---
-title: Python SDK Reference
-description: Documentation for the MirrorNeuron Python SDK, covering installation, usage, and core concepts.
+title: "Python SDK Reference"
+description: "The MirrorNeuron Python SDK provides:"
 ---
 
 # Python SDK Reference
@@ -16,7 +16,7 @@ The MirrorNeuron Python SDK provides:
 From the workspace root:
 
 ```bash
-python3 -m pip install -e mn-python-sdk
+.venv/bin/python -m pip install -e mn-python-sdk
 ```
 
 Expected output:
@@ -48,7 +48,7 @@ Important environment variables:
 | `MN_GRPC_TARGET` | `localhost:55051` | Runtime gRPC endpoint for the local deployed runtime. |
 | `MN_GRPC_TIMEOUT_SECONDS` | `10` | Per-RPC timeout. |
 | `MN_GRPC_AUTH_TOKEN` | unset | Optional bearer token metadata. |
-| `MN_SDK_LOG_PATH` | `~/.mn/logs/sdk.log` | SDK log path. |
+| `MN_SDK_LOG_PATH` | `$MN_HOME/logs/sdk.log` | SDK log path. |
 
 ## Python-Defined Workflows
 
@@ -94,10 +94,27 @@ class MarketingResearchFlow:
         return self.agents.reviewer(request)
 ```
 
-After compiling a decorated workflow into a bundle, validate the generated folder:
+Generate a Python-defined blueprint from a local source-mode blueprint folder:
 
 ```bash
-mn blueprint validate /path/to/generated-bundle
+cd path/to/python-source-blueprint
+.venv/bin/python -m pip install -e ../../mn-skills/blueprint_support_skill
+python -m mn_blueprint_support.python_workflow_bundle_cli \
+  --blueprint-dir . \
+  --quick-test \
+  --output-dir /tmp/mn-python-research
+```
+
+Expected output:
+
+```text
+bundle generated
+```
+
+Validate:
+
+```bash
+mn blueprint validate /tmp/mn-python-research
 ```
 
 Expected output:
@@ -115,7 +132,7 @@ It does:
 - parse the decorated workflow class
 - map agent method calls to graph nodes
 - map call order and return flow to graph edges
-- resolve literals, sample module constants, and `workflow.input(...)`
+- resolve literals, safe module constants, and `workflow.input(...)`
 - package declared includes and payload files
 - emit a normal `manifest.json` plus `payloads/`
 
@@ -124,7 +141,7 @@ It does not:
 - execute arbitrary workflow expressions during compilation
 - use `eval()` for non-literal arguments
 - run Python workflow code as a durable orchestrator at job runtime
-- provide Temporal-10 style even-history replay
+- provide Temporal-style event-history replay
 - provide deterministic clock, random, or command APIs
 
 If you need durable long-running behavior, set the workflow type to `service` and use MirrorNeuron workflow features such as stream agents, recovery policies, retries, backpressure, and persisted agent snapshots.
@@ -140,7 +157,7 @@ If you need durable long-running behavior, set the workflow type to `service` an
 | `runner` | Runner choice such as `host_local` or OpenShell-backed execution. |
 | `retries` | Retry policy. |
 | `pool` | Executor pool name. |
-| `backpressure` | Node-length queue and pressure policy. |
+| `backpressure` | Node-level queue and pressure policy. |
 | `env` | Explicit worker environment values. |
 | `pass_env` | Environment variables copied from the host into the worker. |
 | `uploads` | Payload files to stage for execution. |
@@ -151,7 +168,7 @@ If you need durable long-running behavior, set the workflow type to `service` an
 | `requires_services` | Node-scoped service requirements used by the scheduler. |
 | `raw_config` | Escape hatch for manifest fields not represented by the SDK. |
 
-Keep `pass_env` narrow. See [Security Model](/security).
+Keep `pass_env` narrow. See [Security Model](security.mdx).
 
 ## Workflow Options
 
@@ -168,7 +185,7 @@ Keep `pass_env` narrow. See [Security Model](/security).
 | `triggers` | Event trigger declarations pass-through. |
 | `services` | Job-scoped services provided by the workflow. |
 | `required_services` | Required service preflight declarations. |
-| `policies` | Retry, reschedule, scheduler, and update policy maps. |
+| `policies` | Restart, reschedule, scheduler, and update policy maps. |
 | `backpressure` | Job-level pressure policy. |
 | `includes` | Files or directories copied into the generated payload. |
 | `excludes` | Package paths to omit. |
@@ -177,7 +194,7 @@ The SDK passes these orchestration maps through unchanged so the runtime remains
 
 ## Operational Client Methods
 
-The gRPC client offers operator surfaces for the Nomad-inspired runtime features:
+The gRPC client exposes operator surfaces for the Nomad-inspired runtime features:
 
 ```python
 from mn_sdk import Client
@@ -198,10 +215,10 @@ client.rollback_deployment("agent-api", version="1")
 
 client.list_schedules()
 client.dispatch_schedule("schedule-id", payload={"manual": True})
-client.emit_trigger_event("file_uploaded", payload={"path": "/data/eval.jsonl"})
+client.emit_trigger_event("file_uploaded", payload={"path": "/datasets/eval.jsonl"})
 ```
 
-See [Nomad-Inspired Runtime Features](/nomad-inspired-runtime), [Services and Health Checks](/services-and-health-checks), [Resources and Devices](/resources-and-devices), [Deployments](/deployments), and [Schedules and Events](/schedules-and-events).
+See [Nomad-Inspired Runtime Features](nomad-inspired-runtime.mdx), [Services and Health Checks](services-and-health-checks.mdx), [Resources and Devices](resources-and-devices.mdx), [Deployments](deployments.mdx), and [Schedules and Events](schedules-and-events.mdx).
 
 ## Packaging Rules
 
@@ -219,7 +236,7 @@ If a worker import depends on local files that are not included, the bundle may 
 
 ```bash
 cd mn-python-sdk
-python3 -m pytest tests
+.venv/bin/python -m pytest tests
 ```
 
 Expected output:
@@ -228,13 +245,13 @@ Expected output:
 12 passed
 ```
 
-For a source-mode blueprint, keep the generated bundle out of the repository,
-validate it locally, and include only the source workflow and declared payloads
-in version control.
+For checked-in source-mode examples, use the same
+`mn_blueprint_support.python_workflow_bundle_cli` command from the owning
+blueprint folder and write generated bundles outside the source tree.
 
 ## Related Pages
 
-- [Blueprints and Skills](/blueprints-and-skills)
-- [Job Bundle Format](/bundle)
-- [Security Model](/security)
-- [Testing](/testing)
+- [Blueprints and Skills](blueprints-and-skills.mdx)
+- [Job Bundle Format](bundle.mdx)
+- [Security Model](security.mdx)
+- [Testing](testing.mdx)

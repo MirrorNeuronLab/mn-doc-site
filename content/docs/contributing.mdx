@@ -1,6 +1,6 @@
 ---
 title: "Contributing To MirrorNeuron"
-description: "Documentation for Contributing To MirrorNeuron."
+description: "Thanks for helping improve MirrorNeuron. The best first contribution is usually a small bug fix, test, blueprint improvement, or documentation cleanup."
 ---
 
 # Contributing To MirrorNeuron
@@ -21,9 +21,9 @@ Thanks for helping improve MirrorNeuron. The best first contribution is usually 
 From the workspace root:
 
 ```bash
-python3 -m venv .venv
+python3.11 -m venv .venv
 . .venv/bin/activate
-python3 -m pip install -r mn-system-tests/requirements.txt
+.venv/bin/python -m pip install -r mn-system-tests/requirements.txt
 ```
 
 Expected result:
@@ -72,37 +72,37 @@ Warning: do not remove a Redis container to make this command work. It can conta
 Fast Python and blueprint checks:
 
 ```bash
-python3 mn-system-tests/test_all.py --fast
+.venv/bin/python mn-system-tests/test_all.py --fast
 ```
 
 Unit and component tests:
 
 ```bash
-python3 mn-system-tests/test_all.py --unit
+.venv/bin/python mn-system-tests/test_all.py --unit
 ```
 
 Blueprint quick generation:
 
 ```bash
-python3 mn-system-tests/test_all.py --blueprints
+.venv/bin/python mn-system-tests/test_all.py --blueprints
 ```
 
 Core runtime e2e:
 
 ```bash
-python3 mn-system-tests/test_all.py --runtime-e2e
+.venv/bin/python mn-system-tests/test_all.py --runtime-e2e
 ```
 
 Redis Sentinel HA smoke tests:
 
 ```bash
-python3 mn-system-tests/test_all.py --redis-ha
+.venv/bin/python mn-system-tests/test_all.py --redis-ha
 ```
 
 Two-box Redis Sentinel HA smoke test:
 
 ```bash
-python3 mn-system-tests/test_all.py --redis-ha \
+.venv/bin/python mn-system-tests/test_all.py --redis-ha \
   --redis-ha-remote-host <remote-host> \
   --redis-ha-local-ip <local-host> \
   --redis-ha-remote-ip <remote-host>
@@ -167,7 +167,7 @@ All selected test suites passed.
 
 ## Related Pages
 
-- [Testing](/testing)
-- [Runtime Architecture](/runtime-architecture)
-- [Security Model](/security)
-- [Documentation Style](/documentation-style)
+- [Testing](testing.mdx)
+- [Runtime Architecture](runtime-architecture.mdx)
+- [Security Model](security.mdx)
+- [Documentation Style](documentation-style.mdx)

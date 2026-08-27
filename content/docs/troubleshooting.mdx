@@ -1,24 +1,24 @@
 ---
-title: Troubleshooting
-description: A collection of common operational failures and their fixes during local and two-box testing.
+title: "Troubleshoot MirrorNeuron"
+description: "This page is the canonical symptom-led guide for local and two-node runtime failures. Start with read-only diagnostics. Do not delete Redis state, bundle files, or run records…"
 ---
 
 # Troubleshoot MirrorNeuron
 
-Use this page when a local or two-node runtime fails to start, validate, schedule, or complete work. Start with read-only diagnostics; do not delete Redis state, bundles, or run records as a first response.
+This page is the canonical symptom-led guide for local and two-node runtime failures. Start with read-only diagnostics. Do not delete Redis state, bundle files, or run records as a first response.
 
 ## Collect evidence before changing state
 
-Run these commands first and save the output with secrets removed:
+Run these commands first and retain the output with secrets removed:
 
 ```bash
 mn --version
-mn runtime health
+mn runtime status
 mn runtime status
 mn node list
 ```
 
-For a failed workflow, also record the job ID, run ID, timestamp, and exact error text. Use `mn job status <job_id>` and `mn job monitor <job_id>` to distinguish a runtime failure from a blueprint requirement or worker failure.
+For a workflow failure, also record the job ID, run ID, timestamp, and exact error text. Use `mn job show <job_id>` and `mn run watch <run_id>` to determine whether the failure is in the runtime, a declared blueprint requirement, or worker code.
 
 ## Redis issues
 
@@ -35,20 +35,20 @@ Diagnose:
 docker ps
 ```
 
-If the `mirror-neuron-redis` container is listed, check it directly:
+If `mirror-neuron-redis` is listed, check it directly:
 
 ```bash
 docker exec mirror-neuron-redis redis-cli ping
 ```
 
-`PONG` confirms that the container is responding. If the container is not running, start the managed runtime first:
+`PONG` confirms that the container is responding. If the container is absent or stopped, start the managed runtime first:
 
 ```bash
 mn runtime start
-mn runtime health
+mn runtime status
 ```
 
-Only use a manually started Redis container when you intentionally manage Redis outside the MirrorNeuron deployment. Warning: removing a Redis container can destroy the runtime state stored in that container. Back up or preserve the data before any destructive cleanup.
+Warning: removing a Redis container can discard runtime job state, event history, leases, and recovery metadata. Back up or preserve that data before any destructive cleanup. Use a manually started Redis container only when you intentionally manage Redis outside the MirrorNeuron deployment.
 
 ### Redis Sentinel two-box smoke says replica did not become online
 
@@ -79,7 +79,7 @@ nc -vz -w 3 <local-host> 46379
 If this fails, let the smoke test auto-select the remote side as the initial primary:
 
 ```bash
-python3 mn-system-tests/test_all.py --redis-ha \
+.venv/bin/python mn-system-tests/test_all.py --redis-ha \
   --redis-ha-remote-host <remote-host> \
   --redis-ha-local-ip <local-host> \
   --redis-ha-remote-ip <remote-host>
@@ -201,18 +201,19 @@ Fix:
 - If you are running nodes on different physical machines, they will auto-generate different cookies by default.
 - Set the cookie explicitly on both boxes before starting: `export MN_COOKIE="my_shared_secret"`
 
-### API port already in use
+### HTTP port already in use
 
 Symptoms:
 
 - `Address already in use`
-- the API sidecar fails to start
+- API or Web UI health checks report that a configured port is unavailable
 
 Fix:
 
-- By default, the FastAPI gateway binds to port `54001`.
-- Stop the conflicting process or choose another API port, for example: `export MN_API_PORT=54002`.
-- Keep the API port distinct from the gRPC port (`55051` by default) and the Docker Model Runner/LiteLLM gateway port (`4000` by default).
+- By default, the local FastAPI gateway uses `MN_API_PORT`, commonly `54001`.
+- The Web UI commonly uses `55173`.
+- If you run multiple local runtimes, give each API or Web UI sidecar a distinct port.
+- Keep Erlang distribution ports separate from API and Web UI ports.
 
 ### runtime node name already in use
 
@@ -257,7 +258,7 @@ Options:
 
 Use the CLI command:
 
-- `mn job monitor <job_id>`
+- `mn run watch <run_id>`
 
 If you need all jobs first, run `mn job list`.
 
@@ -286,7 +287,7 @@ Symptoms:
 Check:
 
 ```bash
-python3 --version
+python3.11 --version
 ```
 
 Try to keep both boxes on a compatible Python version.
@@ -311,9 +312,9 @@ If the workflow itself is tiny but runtime is slow, look first at:
 
 ```bash
 mn node list
-mn job status <job_id>
-mn job monitor <job_id>
-mn job dead-letters <job_id>
+mn job show <job_id>
+mn run watch <run_id>
+mn run logs <run_id> --channel events
 openshell status
 openshell sandbox list
 epmd -names

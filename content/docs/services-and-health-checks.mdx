@@ -1,13 +1,13 @@
 ---
-title: Services and Health Checks
-description: Documentation for MirrorNeuron's native Redis-backed service registry and health check layer.
+title: "Services And Health Checks"
+description: "MirrorNeuron has a native Redis-backed service registry and generic health check layer. It is inspired by Nomad's service and check blocks: jobs declare services, checks decide…"
 ---
 
 # Services And Health Checks
 
 MirrorNeuron has a native Redis-backed service registry and generic health check layer. It is inspired by Nomad's `service` and `check` blocks: jobs declare services, checks decide whether service instances are discoverable, and registration follows job or agent lifecycle.
 
-Service discovery remains generic: blueprints and skills declare service endpoints and health checks for Ollama, vLLM, vector databases, and provider-specific services. Local Docker Model Runner LLMs are managed separately with `mn model`; see [Model Runtime](/model-runtime).
+Service discovery remains generic: blueprints and skills declare service endpoints and health checks for Ollama, vLLM, vector databases, and provider-specific services. Local Docker Model Runner LLMs are managed separately with `mn model`; see [Model Runtime](model-runtime.mdx).
 
 ## Design Concept
 
@@ -133,12 +133,12 @@ Script:
 ```json
 {
   "type": "script",
-  "command": ["python3", "payloads/check_model_cache.py"],
+  "command": ["python3.11", "payloads/check_model_cache.py"],
   "timeout_ms": 5000
 }
 ```
 
-Script commands run without shell expansion unless the blueprint explicitly demands a shell as the command. Validation rejects unsafe single-string command shapes with shell metacharacters.
+Script commands run without shell expansion unless the blueprint explicitly invokes a shell as the command. Validation rejects unsafe single-string command shapes with shell metacharacters.
 
 gRPC:
 
@@ -153,15 +153,15 @@ gRPC:
 
 ## Validation And Preflight
 
-`mn blueprint validate <bundle>` validates service declarations after manifest/schema checks and before input validation. `mn blueprint run --folder <build>` runs the same local preflight, and core repeats service preflight before direct runtime starts.
+`mn blueprint validate <bundle>` validates service declarations after manifest/schema checks and before input validation. `mn blueprint run <bundle>` runs the same local preflight, and core repeats service preflight before direct runtime starts.
 
 Failed required services stop the job before agents launch. A forced run can skip service preflight, and job metadata records the skipped check.
 
-Run service checks directly:
+Run blueprint service and dependency checks through the blueprint doctor:
 
 ```bash
-mn service check /path/to/bundle
-mn service check /path/to/bundle --output json
+mn blueprint doctor /path/to/bundle
+mn blueprint doctor /path/to/bundle --json
 ```
 
 ## Discovery Commands
@@ -181,33 +181,52 @@ mn service list --all
 Resolve one service:
 
 ```bash
-mn service resolve ollama --tag llm
+mn service show ollama --tag llm
 ```
 
 Filter by node:
 
 ```bash
-mn service resolve vllm --node mirror_neuron@<node-host>
+mn service show vllm --node mirror_neuron@<node-host>
 ```
 
 ## Blueprint Web UI Services
 
-Blueprints keep using their existing `config.web_ui` contract. For live/service blueprints with `web_ui.output.adapter: "gradio"`, launch preparation injects a runtime-managed `web_ui_dashboard` HostLocal agent and registers its dashboard as a service:
+Live blueprints own their web UI process, layout, actions, port, and service
+declaration. Launch preparation does not inject a dashboard agent or translate
+`config.web_ui` into executable behavior. Reusable rendering and server
+mechanics belong in a generic skill; product actions and state remain in the
+blueprint service.
 
 ```json
 {
-  "name": "blueprint-web-ui",
-  "tags": ["web_ui", "blueprint", "<blueprint_id>", "gradio"],
-  "meta": {
-    "run_id": "<run_id>",
-    "blueprint_id": "<blueprint_id>",
-    "url": "http://localhost:58000",
-    "adapter": "gradio"
-  }
+  "node_id": "<blueprint_web_ui_node>",
+  "type": "stream",
+  "config": {
+    "runner_module": "MirrorNeuron.Runner.HostLocal",
+    "command": ["python3.11", "<blueprint_web_ui_service>.py"]
+  },
+  "resources": {
+    "ports": [{"label": "web_ui", "port": 61000, "protocol": "http"}]
+  },
+  "services": [
+    {
+      "name": "<blueprint-web-ui-service-name>",
+      "port": 61000,
+      "tags": ["web_ui", "blueprint", "<blueprint_id>", "json-render"],
+      "checks": [
+        {"name": "http-ready", "type": "http", "path": "/healthz"}
+      ]
+    }
+  ]
 }
 ```
 
-The generated service reserves an explicit HTTP port from `MN_BLUEPRINT_WEB_UI_PORT_START`/`MN_BLUEPRINT_WEB_UI_PORT_END` and includes an HTTP readiness check. Discovery returns it as passing only after the Gradio dashboard is reachable. Runtime dashboards read live events through the mn-api run events endpoint when the run store is outside the Core container, and fall back to `events.jsonl` when no API event source is configured. The dashboard still writes `ui.json` and `web_ui.json` under the run store for older OtterDesk and CLI consumers, but the service registry is the authoritative live-service source.
+The runtime supervises the declared stream node and registers its service.
+Discovery returns it as passing only after its declared health check succeeds.
+The blueprint service may write `ui.json` and `web_ui.json` as run artifacts,
+but those files are outputs, not instructions for the SDK, API, or CLI to
+create another process.
 
 ## Runtime Behavior
 

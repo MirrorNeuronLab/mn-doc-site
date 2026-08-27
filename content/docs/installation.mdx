@@ -1,102 +1,151 @@
 ---
-title: "Install MirrorNeuron"
-description: "Install and verify a local MirrorNeuron runtime."
+title: "Install MirrorNeuron Locally"
+description: "This is the canonical installation procedure for maintainers, contributors, and operators. It documents the deployment installer, local workspace mode, validation signals,…"
 ---
 
-# Install MirrorNeuron
+# Install MirrorNeuron Locally
 
-Use this guide to install a local MirrorNeuron runtime and verify that its CLI and services are reachable. Use the deployment installer for a supported runtime; use local mode only when you are working from a workspace checkout.
+This is the canonical installation procedure for maintainers, contributors, and operators. It documents the deployment installer, local workspace mode, validation signals, state locations, and safe removal behavior.
+
+## Reader and outcome
+
+- **Reader:** operator or contributor preparing a local runtime.
+- **Outcome:** the `mn` CLI is available, the local runtime is healthy, and the operator knows where state and listeners live.
+- **Page type:** installation how-to.
+- **Source of truth:** `mn-deploy/install.sh`, `mn-deploy/server.sh`, `mn-cli/mn_cli/libs/sys_cmds.py`, and the API/CLI configuration schemas.
 
 ## Before you begin
 
-- Use macOS, Linux, or Windows with WSL2.
-- Install and start Docker.
-- Install `git`.
-- For editable local development, also install Python 3.11+ and Elixir/Erlang.
+- Supported local environments are macOS, Linux, and Windows with WSL2.
+- Docker must be installed and running.
+- `git` is required for checkout-based installation.
+- Python 3.11+ and Elixir/Erlang are required for editable workspace development, not for every released-package installation.
+- Docker Model Runner is required only for blueprints that use local models. Docker Desktop provides it on macOS and Windows; Linux operators must install the plugin when they need that capability.
+- npm is not required to install or run the Web UI; its Node build runs inside
+  the Docker Compose Web UI service.
 
-Docker Model Runner is required only for blueprints that use local models. Docker Desktop supplies it on macOS and Windows; install the Docker Model Runner plugin separately on Linux when you need local model execution.
+## Install released components
 
-Easies way is using installer for our released runtime:
-
-```bash
-curl -fsSL https://mirrorneuron.io/install.sh | bash
-```
-
-## Install the dev version from github 
-
-If you want to install from our legacy or unpublised dev versions, using the github repository:
+Use the deployment repository for a reviewable installation path:
 
 ```bash
-git clone https://github.com/MirrorNeuronLab/mn-deploy
 cd mn-deploy
 ./install.sh --help
 ./install.sh
 ```
 
-The installer runs non-interactively with its default selections. Use `--interactive` to confirm choices or `--version <release-tag>` to install a matching released component set.
+The installer uses default selections without prompts unless `--interactive` is passed. Use `--version <release-tag>` when you need a matching released set of Core, CLI, SDK, API, Web UI, and support files.
 
-Warning: piping an installer into a shell executes the downloaded script immediately. Prefer the checked-out installer when you need to inspect or customize the installation.
+The hosted installer is available when a local checkout is not practical:
 
-## Verify the installation
+```bash
+curl -fsSL https://mirrorneuron.io/install.sh | bash
+```
 
-Confirm that the CLI is on your `PATH` and that the runtime can start:
+Warning: this command downloads and executes a script immediately. Prefer `mn-deploy/install.sh` when you need to inspect the script, select a mode, or retain an auditable local copy.
+
+## Install an editable workspace runtime
+
+Run local mode from the deployment component when you are developing against the current workspace:
+
+```bash
+cd mn-deploy
+./install.sh --mode local
+```
+
+For an explicit Git-based installation, use:
+
+```bash
+cd mn-deploy
+./install.sh --mode github
+```
+
+Git mode uses component repositories rather than editable paths from this checkout. Do not use it when your goal is to test uncommitted workspace changes.
+
+## Verify the runtime
+
+Run these commands after any installation or upgrade:
 
 ```bash
 mn --help
 mn runtime start
-mn runtime health
-mn runtime doctor
+mn runtime status
+mn node list
 ```
 
-`mn --help` should display the MirrorNeuron CLI command groups. 
-`mn runtime health` should complete without reporting a failed required runtime component.
-`mn runtime doctor` should prob all components without problem.
+Verification criteria:
 
-The default local state directory is `~/.mn`. Unless you override `MN_API_PORT`, the REST API is available at `http://localhost:54001/api/v1`.
+- `mn --help` displays the command groups.
+- `mn runtime start` reports `Runtime node ready` followed by the advertised
+  endpoint, node identity, active join token, and an exact `mn node add`
+  command. There is no separate worker start mode.
+- `mn runtime status` reports the Core, REST API, and Web UI health checks without a failed required component.
+- `mn runtime status` reports the resolved endpoints, runtime state, nodes, jobs, and shared storage.
+- `mn node list` returns the local Core and any reciprocally registered
+  federated peers.
 
-## Prepare local models only when required
+If a command fails, collect its output and continue with [Troubleshooting](troubleshooting.mdx) rather than deleting local state.
 
-You usually do not need to install models manually. MirrorNeuron installs the required model automatically when a blueprint needs it. 
-To verify that a model works on your machine, run mn doctor. It reports model availability and shows whether inference is using available hardware acceleration, including NVIDIA, AMD, Intel, or Apple Metal.
+The startup token is a credential, even though it is intentionally displayed
+once the runtime is ready. Do not paste it into issue reports or shared logs.
+Run `mn node refresh-token` if it has been exposed.
+
+## Local state, ports, and configuration
+
+| Item | Default | Owner |
+| --- | --- | --- |
+| Runtime state root | `~/.mn` | CLI, API, SDK, runtime services. |
+| REST API | `http://localhost:54001/api/v1` | `mn-api`; override with `MN_API_PORT`. |
+| Core gRPC endpoint | port `55051` | MirrorNeuron Core and authenticated federation control; override with `MN_GRPC_PORT` and client target settings. |
+| LiteLLM gateway | port `4000` when enabled | Owner-first model gateway; restrict peer access to trusted LAN/VPN networks. |
+| Web UI | port `55173` by default | Docker Compose service; local mode builds the mounted `mn-web-ui` source there. |
+| Blueprint run records | `~/.mn/runs/<run_id>/` | Blueprint run-store contract. |
+
+See [Environment Variables](env_variables.mdx) for the full configuration reference. Do not publish `~/.mn/docker-compose.env`, startup output, tokens, or generated endpoint files because they can contain deployment-specific configuration.
+
+## Prepare a local model only when a blueprint requires it
+
+Blueprint validation identifies declared model requirements. Install and diagnose a local model only after a preflight reports it or after you have reviewed the blueprint configuration:
 
 ```bash
 mn model list
-mn model install gemma4:e2b
+mn model add gemma4:e2b
 mn model doctor gemma4:e2b
 ```
 
-`mn model doctor` checks model availability and compatibility. See [Model Runtime](/model-runtime) for model configuration and remote-provider options.
+`mn model add` can fail when no compatible runtime node is available. Do not use `--force` as a routine fix; first choose a model and blueprint profile that match the available hardware.
 
-## Troubleshoot installation
+## Stop, uninstall, and retain evidence
 
-- **Symptom:** `mn: command not found`
-  - **Check:** `which mn`
-  - **Resolution:** rerun the installer, then open a new shell so its `PATH` changes apply.
-- **Symptom:** the runtime does not start
-  - **Check:** `docker info` and `mn runtime health`
-  - **Resolution:** start Docker, then rerun `mn runtime start`.
-- **Symptom:** blueprint validation reports a missing model
-  - **Check:** `mn model doctor <model-id>`
-  - **Resolution:** install the reported model, then repeat validation.
-
-## Stop or remove the local runtime
-
-Stop local services:
+Stop runtime services:
 
 ```bash
 mn runtime stop
 ```
 
-For an installation made with the hosted installer, use its matching uninstall script:
+For a hosted installation, use the matching uninstall script:
 
 ```bash
 curl -fsSL https://mirrorneuron.io/uninstall.sh | bash
 ```
 
-Warning: `~/.mn` can contain runtime configuration, run records, logs, and model metadata. Do not delete it until you have copied anything you need to retain.
+Before removing `~/.mn`, preserve any required run records, logs, configuration, and model metadata. Removing it can discard local state needed to diagnose jobs or reproduce a deployment.
 
-## Next steps
+## Contributor verification
 
-- [Quickstart](/quickstart) to validate and launch a model-backed local blueprint.
-- [Environment Variables](/env_variables) to configure runtime state and listeners.
-- [Security Model](/security) before using real data or a shared network.
+When changing installer, runtime-start, endpoint, or configuration behavior, verify at least:
+
+```bash
+cd mn-deploy
+./install.sh --help
+```
+
+Then run the relevant CLI/API tests and the documentation-site type check. Update `mn-doc-site/content/docs/installation.mdx` with the concise user-facing impact.
+
+## Related pages
+
+- [Quickstart](quickstart.mdx)
+- [Environment Variables](env_variables.mdx)
+- [Model Runtime](model-runtime.mdx)
+- [Services and Health Checks](services-and-health-checks.mdx)
+- [Troubleshooting](troubleshooting.mdx)

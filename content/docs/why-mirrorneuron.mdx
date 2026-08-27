@@ -1,46 +1,56 @@
 ---
 title: "Why MirrorNeuron"
-description: "Decide whether MirrorNeuron fits a local or clustered AI workflow."
+description: "Use this page to evaluate whether MirrorNeuron fits a workflow before you commit to an integration or contribution. MirrorNeuron is a runtime for message-driven workflows with…"
 ---
 
 # Why MirrorNeuron
 
-Use this page if you are evaluating MirrorNeuron.
+Use this page to evaluate whether MirrorNeuron fits a workflow before you commit to an integration or contribution. MirrorNeuron is a runtime for message-driven workflows with a Python CLI/API layer, an Elixir/BEAM core, Redis-backed runtime state, and blueprint-oriented local run records.
 
-## What MirrorNeuron is for
+## Intended workloads
 
-MirrorNeuron is a fit when you want:
+MirrorNeuron is intended for workflows that need one or more of these properties:
 
-- Easy: Run long or complex AI jobs without worrying about which model, machine, or runtime should handle each step. Reuse proven workflows instead of rebuilding them from scratch.
-- Control: See what the AI is working on, what actions it has taken, and what evidence supports its decisions. Pause, resume, cancel, or recover jobs whenever needed.
-- Ownership: Keep your workflows, runtime state, and outputs under your control. Run work locally, inside private sandboxes, or across your own runtime nodes, while connecting external services only when you choose.
+- packaged workflow definitions, payload files, configuration, and validation rules;
+- explicit job submission, inspection, pause, resume, cancellation, and recovery controls;
+- observable runtime state, events, logs, and output artifacts;
+- a choice between trusted host-local execution, OpenShell sandbox execution, and placement on eligible runtime nodes; or
+- local model execution through Docker Model Runner, with external integrations enabled only by the selected blueprint and its configuration.
 
-## What you should evaluate first
+It can run on a single machine or on a small cluster of runtime nodes. The `mn` CLI, `mn-api` REST gateway, and Python SDK are the public operational surfaces; MirrorNeuron Core owns scheduling, orchestration, and durable runtime coordination.
 
-Before adopting MirrorNeuron, consider four questions:
+## Evaluation checklist
 
-| Question | Why it matters |
-| --- | --- |
-| **Why do you want to run AI locally or at the edge?** | Local execution gives you more control over sensitive data, latency, cost, and system availability. It is most valuable when your workflows need to stay close to private files, factory systems, engineering tools, or other resources that should not depend entirely on the cloud. |
-| **Do you have the hardware required for your workload?** | Some MirrorNeuron blueprints can run on a MacBook, but production workloads may require more memory, faster GPUs, or dedicated machines such as a Mac Studio, high-end workstation, or NVIDIA DGX Spark. Hardware needs depend on the models, tools, and workload size used by each blueprint. |
-| **Do you need a deep AI agent rather than a general AI assistant?** | Tools such as coding agents and AI coworkers are useful for interactive tasks. A deep agent is designed for complex jobs that may run for hours or days, combine multiple LLM calls with conventional software, simulations, databases, and specialized tools, and recover from interruptions while working toward a long-horizon goal. |
-| **Why should AI move closer to your data—not the other way around?** | Video, sensor, and physical-AI workloads generate large, continuous data streams and often require immediate responses. Sending everything to the cloud can add latency, bandwidth costs, and reliability risks. For these workloads, edge AI is not only about privacy; it may be the only practical way to operate in real time. |
+| Question | Evidence to inspect | Why it matters |
+| --- | --- | --- |
+| Is the workflow safe to run? | `manifest.json`, `payloads/`, runner settings, `pass_env`, policy files. | A blueprint can execute code, read declared files, use selected secrets, and call services. |
+| Can the target machine satisfy requirements? | `mn blueprint validate`, `mn model doctor <model-id>`, service checks, resource declarations. | Validation identifies declared model, service, and input requirements before submission. |
+| Does the deployment fit the trust boundary? | `security.md`, listener configuration, Redis configuration, runner selection. | HostLocal, OpenShell, and cluster execution have different privilege and network boundaries. |
+| Can the workflow tolerate retries? | Retry policies, external adapters, idempotency keys, `reliability.md`. | Recovery can repeat work; side-effecting workers must be idempotent or independently deduplicated. |
+| Can operators diagnose failures? | Job events, run store, API health, Redis, model/service diagnostics. | A workflow is operational only when a user can inspect its state and collect evidence. |
 
-## What MirrorNeuron does not guarantee by itself
+## Non-goals and non-guarantees
 
-MirrorNeuron gives you more control over where AI runs and how data is handled, but it does not make every workflow private, secure, or correct automatically.
+MirrorNeuron does not provide these properties merely by being installed:
 
-- **Local AI does not always mean a fully offline workflow.** Your AI models may run entirely on your own machine, while skills such as web browsing, email, APIs, or external connectors may still access the internet. For stricter isolation, you can run MirrorNeuron in a fully air-gapped environment and verify that the workflow continues operating without any network connection.
+- **Automatic privacy.** Data can leave the host if a blueprint calls a remote model provider, web service, browser, email service, or another configured connector.
+- **Automatic sandboxing.** HostLocal runs code directly on the host. OpenShell is a stronger execution boundary, but operators must still review policies, uploads, and service exposure.
+- **Exactly-once external effects.** A retry or recovery can cause an external action to be attempted again. Workers that create external effects must use an idempotency strategy.
+- **Trust isolation between cluster nodes.** Cluster members share a runtime trust domain. Protect node credentials, Redis, and network listeners accordingly.
+- **Domain authority.** Blueprints that prepare finance, legal, medical, safety, investment, or research outputs produce review material; a human must make consequential decisions.
 
-- **Open source gives you verifiability, not a security guarantee.** MirrorNeuron does not come with a managed-service security agreement or contractual guarantee. Instead, you can inspect the code, review blueprint permissions, control network access, and run the system entirely on infrastructure you own. For a fully local workflow, you can disconnect the machine from the internet and verify that the job continues running.
+## Internal sources of truth
 
-- **Sandboxing reduces risk but does not remove it.** Our sandbox, NVIDIA OpenShell, provides a stronger execution boundary than running directly on the host machine, but operators must still review file access, uploaded content, environment variables, network policies, and available services.
+- CLI surface: `mn-cli/mn_cli/main.py` and command modules under `mn-cli/mn_cli/libs/`.
+- REST surface: `mn-api/mn_api/app.py`, route modules under `mn-api/mn_api/routes/`, and the running FastAPI OpenAPI schema.
+- Runtime behavior: `MirrorNeuron/lib/` and its tests.
+- Blueprint requirements: each blueprint's `manifest.json`, `config/`, `README.md`, `SPEC.md`, and tests in `otterdesk-blueprints/`.
+- Runtime configuration: `mn-api/mn_api/config_schema.py`, `mn-cli/mn_cli/config.py`, and the environment-variable reference.
 
-- **Successful execution does not guarantee a correct decision.** A completed blueprint run means the workflow executed successfully; it does not make the result authoritative. Our workflows in blueprints are designed to produce evidence and review material, but not replace qualified human judgment.
+## Related pages
 
-## Next steps
-
-- [Installation](/installation) for a local runtime.
-- [Quickstart](/quickstart) for a model-backed local blueprint preflight and run.
-- [Core Concepts](/core-concepts) for the workflow, blueprint, job, and runtime-node vocabulary.
-- [Security Model](/security) before using real data or a shared network.
+- [Core Concepts](core-concepts.mdx)
+- [Installation](installation.mdx)
+- [Quickstart](quickstart.mdx)
+- [Security Model](security.mdx)
+- [Runtime Architecture](runtime-architecture.mdx)

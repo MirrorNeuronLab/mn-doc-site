@@ -1,6 +1,6 @@
 ---
 title: "Blueprints And Skills"
-description: "Documentation for Blueprints And Skills."
+description: "Blueprints and skills are the main extension points for MirrorNeuron."
 ---
 
 # Blueprints And Skills
@@ -35,7 +35,19 @@ Blueprints that need Python packages at runtime should declare them on the execu
 }
 ```
 
-The runtime creates a cached virtualenv keyed by Python version and dependency contents, then runs `python` or `python3` commands from that environment. Root-level blueprint `requirements.txt` files remain documentation or developer setup files unless an executor explicitly references a dependency file under `payloads/`.
+The runtime creates a cached virtualenv keyed by Python version and dependency contents, then rewrites `python`, `python3`, or `python3.11` commands to run from that environment. Root-level blueprint `requirements.txt` files remain documentation or developer setup files unless an executor explicitly references a dependency file under `payloads/`.
+
+For private or disconnected deployments, the blueprint can own Python packages
+directly. Put source trees or wheels under `payloads/skills` and
+`payloads/agents`, declare them with `source: payload`, and pin the exact
+distribution name and version. A bundled `payloads/agents/index.json` is used
+to render local agent templates. Payload packages override matching GAR
+declarations.
+
+Models and other large assets can also be included. Declare GGUF, Safetensors,
+or DDUF files under `runtime.models.*.source` with `type: payload`; MirrorNeuron
+streams them into its blob store and prepares the Docker Model Runner package
+locally. See [Job Bundle Format](bundle.mdx) for the complete shapes.
 
 ## Wrap Plain Code With The Shared Executor
 
@@ -75,7 +87,7 @@ Job bundle at 'my_bundle' is valid.
 Run it:
 
 ```bash
-mn blueprint run --folder my_bundle
+mn blueprint run my_bundle
 ```
 
 Expected output:
@@ -83,6 +95,81 @@ Expected output:
 ```text
 Job submitted successfully
 ```
+
+## Prefer A Source Manifest For Multi-Step Blueprints
+
+Author multi-step blueprints as `mn.workflow/v1` with `kind: WorkflowSource`.
+The source manifest is the DAG definition; the SDK expands it to the executable
+`mn.workflow/v1` shape used by Core.
+
+```json
+{
+  "apiVersion": "mn.workflow/v1",
+  "kind": "WorkflowSource",
+  "identity": {"id": "vc_assistant", "name": "VC Assistant"},
+  "response_service": {"enabled": true},
+  "workflow": {
+    "steps": [
+      {
+        "id": "intake",
+        "needs": [],
+        "run": {"handler": "vc_assistant.steps.intake"}
+      },
+      {
+        "id": "research",
+        "needs": ["intake"],
+        "run": {
+          "handler": "vc_assistant.steps.research",
+          "with": {"operation": "company_identity"}
+        }
+      }
+    ]
+  }
+}
+```
+
+`response_service` is definition-scoped and remains at the manifest root when
+the SDK expands or compacts a source manifest. Do not place it in `workflow`,
+`agents`, `services`, auxiliary entrypoints, or the Run DAG.
+
+`handler` is a Python module, not `module:callable`. In the standard
+`blueprint` profile, `runtime/run_blueprint.py` resolves the selected handler
+and calls its conventional `run()` function. `run.with` contains declarative
+parameters that let several manifest steps reuse one behavior module.
+
+Use this split:
+
+```text
+manifest.json                         DAG, dependencies, retry policy, handler selection
+payloads/
+  runtime/
+    run_blueprint.py                  worker entrypoint and runtime helpers
+  agents/                             reusable agent implementations
+  steps/
+    intake.py                         reusable intake behavior
+    research.py                       reusable research behavior
+    reporting.py                      reusable reporting behavior
+  docker_worker/                      DockerWorker build context when the blueprint uses it
+  native_worker/                      optional native-worker assets, if used
+  openshell_worker/                   optional OpenShell-worker assets, if used
+  prompts/                            prompt assets
+  knowledge/                          packaged knowledge assets
+  requirements.txt                    runtime Python dependencies
+```
+
+Worker-context directories are siblings in the payload tree, but they are
+consumed by their worker preparer rather than copied into each runtime attempt.
+
+The scheduler invokes the runtime entrypoint once per ready node. The entrypoint
+uses the staged `runtime/manifest.json` to select that node's handler. Keep step
+order, fan-out/fan-in, and handler selection out of configuration files and
+Python registries. This is the same useful separation as an Airflow DAG versus
+an operator implementation, with MirrorNeuron's durable workflow ledger and
+agent runtime underneath.
+
+For a step assigned to an existing custom agent node, use `run.agent`. If its
+runtime binding has a different id, preserve it with `run.binding`. Handler-only
+steps normally need neither field because the compiler creates the step worker.
 
 ## Use The Python SDK For A Bundle
 
@@ -106,7 +193,7 @@ class ResearchAgents:
         return {"status": "ok", "topic": request["topic"]}
 
 
-@workflow.defn(name="research_flow_v1")
+@workflow.defn(name="research_flow_v2")
 class ResearchFlow:
     def __init__(self):
         self.agents = ResearchAgents()
@@ -117,10 +204,27 @@ class ResearchFlow:
         return self.agents.reviewer(request)
 ```
 
-Compile your own decorated workflow into a local bundle, then validate the output:
+Generate a Python-defined blueprint from a local source-mode blueprint folder:
 
 ```bash
-mn blueprint validate /path/to/generated-bundle
+cd path/to/python-source-blueprint
+.venv/bin/python -m pip install -e ../../mn-skills/blueprint_support_skill
+python -m mn_blueprint_support.python_workflow_bundle_cli \
+  --blueprint-dir . \
+  --quick-test \
+  --output-dir /tmp/mn-python-research
+```
+
+Expected output:
+
+```text
+bundle generated
+```
+
+Validate it:
+
+```bash
+mn blueprint validate /tmp/mn-python-research
 ```
 
 ## What The Python Compiler Does
@@ -164,7 +268,7 @@ Some skills are copied into blueprint payloads. Others are installed as local Py
 Use this split:
 
 - Runtime scheduling, leases, events, and recovery belong in `MirrorNeuron`.
-- Workflow-specific code belongs in the owning blueprint folder, such as `otterdesk-blueprints/<blueprint_id>`.
+- Workflow-specific code belongs in a blueprint catalog such as `otterdesk-blueprints`.
 - Reusable worker helpers belong in `mn-skills`.
 - Python workflow authoring helpers belong in `mn-python-sdk`.
 - CLI and API integration belongs in `mn-cli` and `mn-api`.
@@ -188,7 +292,7 @@ Run SDK tests:
 
 ```bash
 cd mn-python-sdk
-python3 -m pytest tests
+.venv/bin/python -m pytest tests
 ```
 
 Expected output:
@@ -200,7 +304,7 @@ Expected output:
 Run blueprint quick generation:
 
 ```bash
-python3 mn-system-tests/test_all.py --blueprints
+.venv/bin/python mn-system-tests/test_all.py --blueprints
 ```
 
 Expected output:
@@ -211,7 +315,7 @@ All selected test suites passed.
 
 ## Related Pages
 
-- [Job Bundle Format](/bundle)
-- [Python SDK](/SDK)
-- [Security Model](/security)
-- [Testing](/testing)
+- [Job Bundle Format](bundle.mdx)
+- [Python SDK](sdk.mdx)
+- [Security Model](security.mdx)
+- [Testing](testing.mdx)
