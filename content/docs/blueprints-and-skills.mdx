@@ -1,321 +1,39 @@
 ---
-title: "Blueprints And Skills"
-description: "Blueprints and skills are the main extension points for MirrorNeuron."
+title: "Use workers and skills"
+description: "Connect reusable Python behavior to blueprint steps and declare its dependencies."
 ---
 
-# Blueprints And Skills
+Start with the [blueprint package format](blueprint-standard.mdx). Put logical dependencies in `workflow.json`, worker configuration in `execution.json`, and package versions in `dependencies.json`.
 
-Blueprints and skills are the main extension points for MirrorNeuron.
+## Select Python step handlers
 
-- A **blueprint** packages a runnable workflow bundle.
-- A **skill** packages reusable code or instructions used by a blueprint worker.
-- The **Python SDK** can compile pure Python workflow definitions into a bundle.
-
-## Create A Minimal Blueprint
-
-A runnable bundle has this shape:
-
-```text
-my_bundle/
-  manifest.json
-  payloads/
-```
-
-For a pure routing workflow, `payloads/` can be empty. For executor workflows, put scripts, Python packages, policies, templates, and data under `payloads/`.
-
-Blueprints that need Python packages at runtime should declare them on the executor node instead of adding them to the core image. For `MirrorNeuron.Runner.HostLocal`, add a dependency file under `payloads/` and reference it with `python_environment`:
+This workflow fragment selects two Python modules:
 
 ```json
 {
-  "runner_module": "MirrorNeuron.Runner.HostLocal",
-  "python_environment": {
-    "requirements": "worker/requirements.txt",
-    "packages": ["opencv-python-headless>=4.10,<5"]
-  }
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/workflow.schema.json",
+  "steps": [
+    {"id": "intake", "needs": [], "run": {"handler": "my_blueprint.steps.intake"}},
+    {"id": "review", "needs": ["intake"], "run": {"handler": "my_blueprint.steps.review"}}
+  ]
 }
 ```
 
-The runtime creates a cached virtualenv keyed by Python version and dependency contents, then rewrites `python`, `python3`, or `python3.11` commands to run from that environment. Root-level blueprint `requirements.txt` files remain documentation or developer setup files unless an executor explicitly references a dependency file under `payloads/`.
+Provide those modules in the worker's packaged Python environment. A `handler` is a module name, not `module:callable`; the default step runtime calls its conventional `run()` function. Use `execution.mode: compiled` and declare the worker image or an explicit worker choice in the execution document. This fragment is not a complete runnable package.
 
-For private or disconnected deployments, the blueprint can own Python packages
-directly. Put source trees or wheels under `payloads/skills` and
-`payloads/agents`, declare them with `source: payload`, and pin the exact
-distribution name and version. A bundled `payloads/agents/index.json` is used
-to render local agent templates. Payload packages override matching GAR
-declarations.
+## Add reusable dependencies
 
-Models and other large assets can also be included. Declare GGUF, Safetensors,
-or DDUF files under `runtime.models.*.source` with `type: payload`; MirrorNeuron
-streams them into its blob store and prepares the Docker Model Runner package
-locally. See [Job Bundle Format](bundle.mdx) for the complete shapes.
+Declare skills and agents by distribution name and an explicit version. SDK components use `packages` records with `type: pip` and `source: gar`. Use exact versions for a reproducible release or supported constraints when your compatibility policy allows them. See [Dependency versions](blueprint-standard.mdx#dependency-versions).
 
-## Wrap Plain Code With The Shared Executor
+For local source development, `MN_USE_LOCAL_SKILLS=1` resolves matching projects in `mn-skills` or packaged `payloads/skills` source trees. Binary mode preserves release constraints and does not automatically use bundled source. Keep the authored declarations unchanged between modes.
 
-Any code execution that is part of a blueprint workflow should be represented by
-an agent. Plain Python does not need a custom wrapper; use the shared
-`mn-agents.data_python_executor@1.0.0` executor through
-`mn_blueprint_support`:
+## Validate and run
 
-```python
-from mn_blueprint_support import python_executor_template_node
-
-node = python_executor_template_node(
-    "target_discovery",
-    "scripts/stage_a.py",
-    output_message_type="targets_ready",
-)
-```
-
-The helper emits a normal manifest node using the shared generic Python executor.
-The script stays under `payloads/worker`, but the runtime sees a real agent with
-leases, lifecycle events, retry policy, beacons, and UI liveness. Prefer this
-shared executor over per-blueprint wrapper scripts or direct background process
-launches.
-
-Validate the bundle:
+From the directory containing your reviewed package:
 
 ```bash
-mn blueprint validate my_bundle
+mn blueprint validate ./my-blueprint
+mn blueprint doctor ./my-blueprint
 ```
 
-Expected output:
-
-```text
-Job bundle at 'my_bundle' is valid.
-```
-
-Run it:
-
-```bash
-mn blueprint run my_bundle
-```
-
-Expected output:
-
-```text
-Job submitted successfully
-```
-
-## Prefer A Source Manifest For Multi-Step Blueprints
-
-Author multi-step blueprints as `mn.workflow/v1` with `kind: WorkflowSource`.
-The source manifest is the DAG definition; the SDK expands it to the executable
-`mn.workflow/v1` shape used by Core.
-
-```json
-{
-  "apiVersion": "mn.workflow/v1",
-  "kind": "WorkflowSource",
-  "identity": {"id": "vc_assistant", "name": "VC Assistant"},
-  "response_service": {"enabled": true},
-  "workflow": {
-    "steps": [
-      {
-        "id": "intake",
-        "needs": [],
-        "run": {"handler": "vc_assistant.steps.intake"}
-      },
-      {
-        "id": "research",
-        "needs": ["intake"],
-        "run": {
-          "handler": "vc_assistant.steps.research",
-          "with": {"operation": "company_identity"}
-        }
-      }
-    ]
-  }
-}
-```
-
-`response_service` is definition-scoped and remains at the manifest root when
-the SDK expands or compacts a source manifest. Do not place it in `workflow`,
-`agents`, `services`, auxiliary entrypoints, or the Run DAG.
-
-`handler` is a Python module, not `module:callable`. In the standard
-`blueprint` profile, `runtime/run_blueprint.py` resolves the selected handler
-and calls its conventional `run()` function. `run.with` contains declarative
-parameters that let several manifest steps reuse one behavior module.
-
-Use this split:
-
-```text
-manifest.json                         DAG, dependencies, retry policy, handler selection
-payloads/
-  runtime/
-    run_blueprint.py                  worker entrypoint and runtime helpers
-  agents/                             reusable agent implementations
-  steps/
-    intake.py                         reusable intake behavior
-    research.py                       reusable research behavior
-    reporting.py                      reusable reporting behavior
-  docker_worker/                      DockerWorker build context when the blueprint uses it
-  native_worker/                      optional native-worker assets, if used
-  openshell_worker/                   optional OpenShell-worker assets, if used
-  prompts/                            prompt assets
-  knowledge/                          packaged knowledge assets
-  requirements.txt                    runtime Python dependencies
-```
-
-Worker-context directories are siblings in the payload tree, but they are
-consumed by their worker preparer rather than copied into each runtime attempt.
-
-The scheduler invokes the runtime entrypoint once per ready node. The entrypoint
-uses the staged `runtime/manifest.json` to select that node's handler. Keep step
-order, fan-out/fan-in, and handler selection out of configuration files and
-Python registries. This is the same useful separation as an Airflow DAG versus
-an operator implementation, with MirrorNeuron's durable workflow ledger and
-agent runtime underneath.
-
-For a step assigned to an existing custom agent node, use `run.agent`. If its
-runtime binding has a different id, preserve it with `run.binding`. Handler-only
-steps normally need neither field because the compiler creates the step worker.
-
-## Use The Python SDK For A Bundle
-
-The SDK supports a Temporal-like authoring style, but it is a bundle compiler, not a Temporal replay engine.
-
-Example:
-
-```python
-from mn_sdk import agent, workflow
-
-TOPIC = workflow.input("topic", default="charging adoption")
-
-
-class ResearchAgents:
-    @agent.defn(name="ingress", type="map", runner="host_local")
-    def ingress(self, topic: str):
-        return {"message_type": "research_request", "topic": topic}
-
-    @agent.defn(name="reviewer", type="reduce", retries={"max_attempts": 2})
-    def reviewer(self, request):
-        return {"status": "ok", "topic": request["topic"]}
-
-
-@workflow.defn(name="research_flow_v2")
-class ResearchFlow:
-    def __init__(self):
-        self.agents = ResearchAgents()
-
-    @workflow.run
-    def run(self):
-        request = self.agents.ingress(TOPIC)
-        return self.agents.reviewer(request)
-```
-
-Generate a Python-defined blueprint from a local source-mode blueprint folder:
-
-```bash
-cd path/to/python-source-blueprint
-.venv/bin/python -m pip install -e ../../mn-skills/blueprint_support_skill
-python -m mn_blueprint_support.python_workflow_bundle_cli \
-  --blueprint-dir . \
-  --quick-test \
-  --output-dir /tmp/mn-python-research
-```
-
-Expected output:
-
-```text
-bundle generated
-```
-
-Validate it:
-
-```bash
-mn blueprint validate /tmp/mn-python-research
-```
-
-## What The Python Compiler Does
-
-The compiler:
-
-- reads a restricted workflow expression tree
-- resolves safe literals, `workflow.input(...)`, and registered constants
-- maps agent calls to manifest nodes and edges
-- packages declared files and includes under the generated payload
-- emits a normal MirrorNeuron bundle
-
-The compiler does not:
-
-- execute arbitrary `eval()` expressions
-- provide event-history replay like Temporal
-- make Python workflow code itself durable at runtime
-- turn non-deterministic Python side effects into replay-safe workflow commands
-
-If a workflow needs long-running durable behavior, express it with MirrorNeuron service, stream, retry, and recovery manifest options.
-
-## Skill Package Shape
-
-A skill package commonly contains:
-
-```text
-my_skill/
-  README.md
-  pyproject.toml
-  my_skill/
-    __init__.py
-    tool.py
-  tests/
-    test_tool.py
-```
-
-Some skills are copied into blueprint payloads. Others are installed as local Python packages. Keep skill APIs narrow and testable.
-
-## Where To Put Code
-
-Use this split:
-
-- Runtime scheduling, leases, events, and recovery belong in `MirrorNeuron`.
-- Workflow-specific code belongs in a blueprint catalog such as `otterdesk-blueprints`.
-- Reusable worker helpers belong in `mn-skills`.
-- Python workflow authoring helpers belong in `mn-python-sdk`.
-- CLI and API integration belongs in `mn-cli` and `mn-api`.
-
-## Extension Security Checklist
-
-Before publishing or running a blueprint or skill:
-
-- Read every command in `manifest.json`.
-- Read every file under `payloads/`.
-- Check whether `runner` is `host_local` or OpenShell.
-- Check all `pass_env` entries.
-- Check network policies and API base URLs.
-- Check whether the workflow is a service.
-- Confirm retry behavior will not spam external services.
-- Run quick tests with fake data and dry-run delivery flags first.
-
-## Verification Commands
-
-Run SDK tests:
-
-```bash
-cd mn-python-sdk
-.venv/bin/python -m pytest tests
-```
-
-Expected output:
-
-```text
-12 passed
-```
-
-Run blueprint quick generation:
-
-```bash
-.venv/bin/python mn-system-tests/test_all.py --blueprints
-```
-
-Expected output:
-
-```text
-All selected test suites passed.
-```
-
-## Related Pages
-
-- [Job Bundle Format](bundle.mdx)
-- [Python SDK](sdk.mdx)
-- [Security Model](security.mdx)
-- [Testing](testing.mdx)
+Replace the path with your folder. Missing worker imports, images, models, or service requirements must be fixed before launch. Follow [Quickstart](quickstart.mdx) to launch sample inputs and inspect results. Review mounts, environment, egress, and external actions before executing worker code.

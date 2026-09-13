@@ -1,95 +1,32 @@
 ---
-title: "MirrorNeuron Documentation"
-description: "This directory is the detailed documentation source of truth for the MirrorNeuron workspace. It is written for internal maintainers, contributors, integrators, and operators;…"
+title: "MirrorNeuron Developer Manual"
+description: "Install the runtime, run blueprints, build workflows, and integrate your application."
 ---
 
-# MirrorNeuron Documentation
+MirrorNeuron runs packaged workflows called **blueprints**. Create a durable **job**, start a **run**, and inspect its logs and outputs with the CLI or HTTP API.
 
-This directory is the detailed documentation source of truth for the MirrorNeuron workspace. It is written for internal maintainers, contributors, integrators, and operators; the documentation site presents a shorter reader-facing layer. When the two differ, verify the implementation and update both in the same change.
+## Start here
 
-MirrorNeuron is a runtime for message-driven workflows with a Python CLI/API layer, an Elixir/BEAM core, Redis-backed runtime state, and blueprint-oriented run records. It can run on one machine or across runtime nodes.
+1. [Install MirrorNeuron](installation.mdx) and check runtime health.
+2. [Run your first blueprint](quickstart.mdx) using reviewed sample inputs.
+3. [Monitor the run](monitor.mdx), collect outputs, and handle human requests.
 
-## Documentation contract
+## Choose your task
 
-Every user-visible behavior has one canonical detailed page in this directory:
-
-| Fact | Canonical page | Implementation source to verify |
-| --- | --- | --- |
-| Project fit, boundaries, and non-guarantees | [Why MirrorNeuron](why-mirrorneuron.mdx) | Runtime, runner, and security implementation. |
-| Shared vocabulary | [Core Concepts](core-concepts.mdx) | Manifest/runtime terms and CLI/API contracts. |
-| Installation and local services | [Installation](installation.mdx) | `mn-deploy/install.sh`, `server.sh`, runtime start code. |
-| CLI syntax and behavior | [CLI Reference](cli.mdx) | `mn-cli/mn_cli/main.py` and command modules. |
-| REST API shape | [API Reference](api.mdx) | `mn-api` routes and running FastAPI OpenAPI schema. |
-| Environment defaults | [Environment Variables](env_variables.mdx) | CLI, API, SDK, and Core configuration definitions. |
-| Blueprint and manifest contracts | [Blueprint Standard](blueprint-standard.mdx), [Job Bundle Format](bundle.mdx) | Schemas, SDK validators, and checked-in blueprints. |
-| Reliability and recovery | [Reliability Guide](reliability.mdx) | Core persistence, lease, scheduler, and recovery tests. |
-| Security boundaries | [Security Model](security.mdx) | Runner, network, Redis, secret, and policy behavior. |
-| Repeated operational failures | [Troubleshooting](troubleshooting.mdx) | Reproducible diagnostics and component tests. |
-
-Do not duplicate large command tables, API shapes, or environment-variable lists on tutorial pages. Link to the canonical reference instead.
-
-## Reader journeys
-
-### Evaluator
-
-1. [Why MirrorNeuron](why-mirrorneuron.mdx)
-2. [Core Concepts](core-concepts.mdx)
-3. [Quickstart](quickstart.mdx)
-4. [Security Model](security.mdx)
-5. [Runtime Architecture](runtime-architecture.mdx)
-
-### First-time developer
-
-1. [Installation](installation.mdx)
-2. [Quickstart](quickstart.mdx)
-3. [Examples](examples.mdx)
-4. [CLI Reference](cli.mdx)
-5. [Troubleshooting](troubleshooting.mdx)
-
-### Blueprint author
-
-1. [Core Concepts](core-concepts.mdx)
-2. [Blueprint Standard](blueprint-standard.mdx)
-3. [Blueprints and Skills](blueprints-and-skills.mdx)
-4. [Python SDK](sdk.mdx)
-5. [Testing](testing.mdx)
-
-### Operator
-
-1. [Installation](installation.mdx)
-2. [Services and Health Checks](services-and-health-checks.mdx)
-3. [Monitor Guide](monitor.mdx)
-4. [Reliability Guide](reliability.mdx)
-5. [Redis High Availability](redis-ha.mdx)
-6. [Troubleshooting](troubleshooting.mdx)
-
-### Contributor
-
-1. [Component Guide](component-guide.mdx)
-2. [Runtime Architecture](runtime-architecture.mdx)
-3. [Testing](testing.mdx)
-4. [Contributing](contributing.mdx)
-5. [Documentation Style](documentation-style.mdx)
-
-## Documentation map
-
-| Topic | Page |
+| I want to… | Guide |
 | --- | --- |
-| Local installation and verification | [installation.md](installation.mdx) |
-| First local workflow | [quickstart.md](quickstart.mdx) |
-| Checked-in blueprint selection | [examples.md](examples.mdx) |
-| CLI, API, SDK, and configuration | [cli.md](cli.mdx), [api.md](api.mdx), [SDK.md](sdk.mdx), [env_variables.md](env_variables.mdx) |
-| Models, OpenShell, services, and resources | [model-runtime.md](model-runtime.mdx), [docker_and_openshell_for_blueprints.md](docker_and_openshell_for_blueprints.mdx), [services-and-health-checks.md](services-and-health-checks.mdx), [resources-and-devices.md](resources-and-devices.mdx) |
-| Cluster, deployment, schedules, and HA | [cluster.md](cluster.mdx), [deployments.md](deployments.mdx), [schedules-and-events.md](schedules-and-events.mdx), [redis-ha.md](redis-ha.mdx) |
-| Architecture, reliability, and security | [runtime-architecture.md](runtime-architecture.mdx), [cluster_architecture.md](cluster_architecture.mdx), [reliability.md](reliability.mdx), [security.md](security.mdx) |
-| Internal quality and contributor process | [testing.md](testing.mdx), [contributing.md](contributing.mdx), [documentation-style.md](documentation-style.mdx) |
+| Find a blueprint and check its requirements | [Choose a blueprint](examples.mdx) |
+| Create a reusable workflow package | [Author a blueprint](blueprint-standard.mdx) |
+| Use Python to load and compile a package | [Python SDK](sdk.mdx) |
+| Select or diagnose a model | [Model runtime](model-runtime.mdx) |
+| Start runs from my application | [HTTP API](api.mdx) |
+| Automate CLI commands | [CLI reference](cli.mdx) |
+| Resolve a failed launch or missing output | [Troubleshooting](troubleshooting.mdx) |
+| Connect another machine | [Connect runtime nodes](cluster.mdx) |
+| Review worker permissions and data access | [Security](security.mdx) |
 
-## Source-doc update rule
+## Know these three terms
 
-When a pull request changes a command, API route, configuration key, manifest field, runtime guarantee, runner boundary, or failure behavior:
+A blueprint is the reusable package. A job stores its configured definition. A run is one execution of that job. Use the job ID to start another execution, and the run ID to inspect, pause, resume, or cancel it. See [Core concepts](core-concepts.mdx).
 
-1. update the canonical detailed page in `mn-docs`;
-2. update the concise corresponding page in `mn-doc-site/content/docs` when the behavior is user-facing;
-3. update a tutorial, troubleshooting page, and migration note when the reader journey changes;
-4. run the documentation build and the smallest relevant product validation; and
-5. record the implementation source and validation command in the pull request.
+Begin with sample data and review each blueprint's worker code, model endpoints, and external actions before running it. A completed run still requires review of its outputs.
