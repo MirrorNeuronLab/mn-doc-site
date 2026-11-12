@@ -1,173 +1,27 @@
 ---
-title: "Contributing To MirrorNeuron"
-description: "Thanks for helping improve MirrorNeuron. The best first contribution is usually a small bug fix, test, blueprint improvement, or documentation cleanup."
+title: "Contribute to MirrorNeuron"
+description: "Report a problem, verify a fix, or improve the user guide."
 ---
 
-# Contributing To MirrorNeuron
+## Report a problem
 
-Thanks for helping improve MirrorNeuron. The best first contribution is usually a small bug fix, test, blueprint improvement, or documentation cleanup.
+Include what you tried, what you expected, and what happened. For a runtime issue, include the installed version, platform, installation role, and the relevant public IDs and timestamps. Add sanitized logs or a small reproduction. Keep credentials, customer data, and security details private. See [Troubleshooting](./troubleshooting.mdx).
 
-## Ways To Contribute
+## Verify a change
 
-- Fix runtime, CLI, SDK, API, or Web UI bugs.
-- Add or improve tests.
-- Improve documentation and examples.
-- Build or harden blueprints.
-- Improve sandbox, Redis HA, cluster, or resource-admission behavior.
-- Report security issues responsibly.
+Use the [component map](./component-guide.mdx) to find the relevant repository and follow its development setup. Run a focused check from the component first. For cross-component contracts, use [the system test runner](./testing.mdx#common-commands).
 
-## Development Setup
+If you need a runtime from editable sibling checkouts, run `./install.sh --mode local` from `mn-deploy` after reviewing its help and selecting a development home. Check service health before launching sample workflows. See [Install MirrorNeuron](./installation.mdx).
 
-From the workspace root:
+## Improve this guide
+
+Update the steps or reference the reader needs. Use Node.js 22 or later to build and preview the site from `mn-doc-site`.
 
 ```bash
-python3.11 -m venv .venv
-. .venv/bin/activate
-.venv/bin/python -m pip install -r mn-system-tests/requirements.txt
+npm ci
+npm run types:check
+npm run build
+npm run dev
 ```
 
-Expected result:
-
-```text
-Successfully installed ...
-```
-
-Install Elixir dependencies:
-
-```bash
-cd MirrorNeuron
-mix deps.get
-mix compile
-```
-
-Expected result:
-
-```text
-Generated mirror_neuron app
-```
-
-If the change requires a local Redis instance, first check whether one is already running:
-
-```bash
-docker ps --filter name=mirror-neuron-redis
-```
-
-Start a disposable Redis container only when it is absent:
-
-```bash
-docker run -d --name mirror-neuron-redis -p 6379:6379 redis:7
-docker exec mirror-neuron-redis redis-cli ping
-```
-
-Expected output:
-
-```text
-PONG
-```
-
-Warning: do not remove a Redis container to make this command work. It can contain another developer's runtime state. Use a separate container name, port, or Redis namespace for isolated testing.
-
-## Test Commands
-
-Fast Python and blueprint checks:
-
-```bash
-.venv/bin/python mn-system-tests/test_all.py --fast
-```
-
-Unit and component tests:
-
-```bash
-.venv/bin/python mn-system-tests/test_all.py --unit
-```
-
-Blueprint quick generation:
-
-```bash
-.venv/bin/python mn-system-tests/test_all.py --blueprints
-```
-
-Core runtime e2e:
-
-```bash
-.venv/bin/python mn-system-tests/test_all.py --runtime-e2e
-```
-
-Redis Sentinel HA smoke tests:
-
-```bash
-.venv/bin/python mn-system-tests/test_all.py --redis-ha
-```
-
-Two-box Redis Sentinel HA smoke test:
-
-```bash
-.venv/bin/python mn-system-tests/test_all.py --redis-ha \
-  --redis-ha-remote-host <remote-host> \
-  --redis-ha-local-ip <local-host> \
-  --redis-ha-remote-ip <remote-host>
-```
-
-Expected success marker:
-
-```text
-All selected test suites passed.
-```
-
-## Before Opening A Pull Request
-
-- Run the smallest test suite that covers your change.
-- Run the broader suite when touching shared runtime, persistence, CLI, SDK, or API behavior.
-- Update docs when behavior, commands, config, or security posture changes.
-- Add migration notes when existing manifests, env vars, or persisted data are affected.
-- Include screenshots or terminal output for UI, monitor, and CLI changes.
-
-## PR Checklist
-
-- [ ] I tested this locally.
-- [ ] I added or updated tests.
-- [ ] I updated relevant docs.
-- [ ] I considered security implications.
-- [ ] I described user-facing behavior changes.
-- [ ] I noted any migration or compatibility concerns.
-
-## Code Style
-
-- Keep runtime primitives small and generic.
-- Prefer existing helpers and patterns over new abstractions.
-- Keep Redis keys, manifest fields, and API responses stable unless a migration is planned.
-- Use explicit capacity, timeout, and backpressure settings for work that can block.
-- Avoid domain-specific business logic in the core runtime.
-
-## Documentation Style
-
-- Use action-oriented page titles.
-- Put commands in fenced `bash` blocks.
-- Show expected output after important commands.
-- Call out security, data loss, and irreversible operations clearly.
-- Prefer realistic examples using checked-in blueprints.
-- End pages with the next useful link.
-
-## Documentation Checklist
-
-- [ ] New feature has user-facing docs.
-- [ ] Changed behavior is reflected in docs.
-- [ ] Commands were tested or marked as representative.
-- [ ] Security implications are documented.
-- [ ] Migration notes are included if needed.
-- [ ] Troubleshooting was updated for repeated support questions.
-
-## Recommended First PRs
-
-- Add a focused regression test for a fixed bug.
-- Improve expected output in a getting-started page.
-- Add a quick-test mode to a blueprint generator.
-- Add a troubleshooting entry from a real failure.
-- Tighten a manifest validation error message.
-
-## Related Pages
-
-- [Testing](testing.mdx)
-- [Runtime Architecture](runtime-architecture.mdx)
-- [Security Model](security.mdx)
-- [Documentation Style](documentation-style.mdx)
+Open [the local guide](http://localhost:3000/docs) and try the affected links and navigation. Record the command, schema, or test that confirms changed behavior when you submit the change. See [Writing for the user guide](./documentation-style.mdx).

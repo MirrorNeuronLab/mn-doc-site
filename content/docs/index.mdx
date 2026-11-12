@@ -1,32 +1,28 @@
 ---
-title: "MirrorNeuron Developer Manual"
-description: "Install the runtime, run blueprints, build workflows, and integrate your application."
+title: "MirrorNeuron Runtime user guide"
+description: "Install MirrorNeuron, run a blueprint, and manage workflows on your own runtime."
 ---
 
-MirrorNeuron runs packaged workflows called **blueprints**. Create a durable **job**, start a **run**, and inspect its logs and outputs with the CLI or HTTP API.
+MirrorNeuron Runtime runs packaged workflows called **blueprints**. Start on one machine or connect several runtime nodes. Use the Web UI to inspect jobs and runs, the `mn` CLI to operate the runtime, or the HTTP API and Python SDK to integrate your application.
 
 ## Start here
 
-1. [Install MirrorNeuron](installation.mdx) and check runtime health.
-2. [Run your first blueprint](quickstart.mdx) using reviewed sample inputs.
-3. [Monitor the run](monitor.mdx), collect outputs, and handle human requests.
+1. [Install MirrorNeuron](./installation.mdx) on your machine or connect a client to an existing runtime.
+2. [Run your first blueprint](./quickstart.mdx) with sample inputs.
+3. [Find the run and download its results](./monitor.mdx).
 
 ## Choose your task
 
-| I want to… | Guide |
+| I want to… | Go to |
 | --- | --- |
-| Find a blueprint and check its requirements | [Choose a blueprint](examples.mdx) |
-| Create a reusable workflow package | [Author a blueprint](blueprint-standard.mdx) |
-| Use Python to load and compile a package | [Python SDK](sdk.mdx) |
-| Select or diagnose a model | [Model runtime](model-runtime.mdx) |
-| Start runs from my application | [HTTP API](api.mdx) |
-| Automate CLI commands | [CLI reference](cli.mdx) |
-| Resolve a failed launch or missing output | [Troubleshooting](troubleshooting.mdx) |
-| Connect another machine | [Connect runtime nodes](cluster.mdx) |
-| Review worker permissions and data access | [Security](security.mdx) |
+| Choose a workflow from my catalog | [Choose a blueprint](./examples.mdx) |
+| Understand job IDs, run IDs, and saved data | [Blueprints, jobs, and runs](./core-concepts.mdx) |
+| Configure a model or diagnose a failed run | [Models](./model-runtime.mdx) · [Troubleshooting](./troubleshooting.mdx) |
+| Run jobs on a schedule or manage limited capacity | [Schedules and events](./schedules-and-events.mdx) · [Resources and devices](./resources-and-devices.mdx) |
+| Review a workflow before sharing data | [Execution and data access](./security.mdx) |
+| Author a package or connect an application | [Blueprints](./blueprint-standard.mdx) · [CLI](./cli.mdx) · [HTTP API](./api.mdx) · [Python SDK](./sdk.mdx) |
+| Connect a second runtime node | [Connect runtime nodes](./cluster.mdx) |
 
-## Know these three terms
+## Project resources
 
-A blueprint is the reusable package. A job stores its configured definition. A run is one execution of that job. Use the job ID to start another execution, and the run ID to inspect, pause, resume, or cancel it. See [Core concepts](core-concepts.mdx).
-
-Begin with sample data and review each blueprint's worker code, model endpoints, and external actions before running it. A completed run still requires review of its outputs.
+[Run validation checks](./testing.mdx), [read a benchmark report](./system-benchmarks.mdx), or [contribute to MirrorNeuron](./contributing.mdx).

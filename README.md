@@ -1,8 +1,10 @@
-# MirrorNeuron developer manual
+# MirrorNeuron Runtime user guide
 
-This Next.js/Fumadocs site is the external developer manual. Content lives in `content/docs`; `meta.json` orders the task-oriented sidebar. Detailed internal design and contributor contracts live in the separate `mn-docs` repository. Verify behavior against the owning runtime code before updating both layers.
+This Next.js and Fumadocs site serves the MirrorNeuron Runtime user guide. Edit the MDX pages in `content/docs`. The sidebar order is defined in `content/docs/meta.json`.
 
-From this repository, with Node.js and npm installed:
+## Preview and validate the site
+
+Use Node.js 22 or later. Run the setup and preview commands from the site repository.
 
 ```bash
 npm ci
@@ -11,6 +13,10 @@ npm run build
 npm run dev
 ```
 
-Open http://localhost:3000 for the local preview and stop it with Ctrl+C. Build output is generated under `.next`; MDX collections are generated under `.source`. Do not commit generated dependencies or build output.
+Open [the local preview](http://localhost:3000/docs). Stop the preview with Ctrl+C. Next.js writes build output to `.next` and Fumadocs generates collections in `.source`.
 
-Start readers with installation, quickstart, monitoring, authoring, and integration tasks. Keep implementation history and maintainer checklists out of the main reader journey. Preserve existing document routes when changing navigation. Run the type check, production build, local link audit, and `git diff --check` after content changes.
+## Edit a guide
+
+Start with the task readers need to complete. State the prerequisites, show the command or UI action, and tell readers what success looks like. Check examples and defaults against the owning code, command help, or API schema. Use `mn-docs` for the longer component references.
+
+Keep existing page URLs when you update the sidebar. After editing, check the rendered pages, local links, and heading links. Run `git diff --check` before submitting.

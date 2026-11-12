@@ -1,71 +1,56 @@
 ---
 title: "Troubleshooting"
-description: "Find the next diagnostic action from a failed launch, run, or connection."
+description: "Find the next check when a runtime, blueprint, or run fails."
 ---
 
-Run commands from any directory with the CLI installed. Keep public job/run IDs, timestamps, and error codes; remove tokens and sensitive input from reports.
+Save the exact error, time, job ID, and run ID before changing state. Keep tokens, provider credentials, and private input paths out of shared diagnostics.
+
+## A client cannot connect
+
+Run `mn --version` and `mn runtime status` in the intended installation environment. In client mode, status describes the saved connection. For `MN_CLIENT_NOT_CONNECTED`, check the selected `MN_HOME`, the reachable Core host and port, and the runtime control token. Reattach with [the client connection procedure](./installation.mdx#connect-a-client-without-docker). A failed attachment keeps the previous profile.
 
 ## Runtime does not become ready
 
-```bash
-mn --version
-mn runtime status
-mn runtime doctor
-mn node list
-```
-
-Fix the named component or endpoint first. Start managed services with `mn runtime start` if they are stopped. Do not delete Redis or `~/.mn` as an initial troubleshooting step.
+Run `mn runtime doctor` on a combined installation or `bin/mn-runtime doctor` from the dedicated runtime home. Check that Docker is running and that the required components start. For a port conflict, compare the reported listener with the intended configuration. For Redis errors, check the owning Core's Redis endpoint and service logs. If Sentinel is configured, see [Redis failover diagnostics](./redis-ha.mdx#verify-and-troubleshoot). Preserve Redis data before any cleanup.
 
 ## A local folder is treated as a catalog ID
 
-Use an explicit relative or absolute path:
-
-```bash
-mn blueprint validate ./my-blueprint
-mn blueprint doctor ./my-blueprint
-```
-
-Replace `./my-blueprint` with your package. Launch and doctor targets without `./`, `../`, or `/` are catalog IDs.
+Pass an explicit path such as `./my-blueprint`, `../my-blueprint`, or an absolute path. Local packages require an attached runtime on the same machine. On a remote runtime, launch with an ID available to that runtime and use input paths accessible there. The surface's catalog can differ from the runtime's catalog.
 
 ## A blueprint fails validation or preparation
 
-Read the named role document and error field. Current packages reference workflow, execution, contracts, and configuration documents from a small manifest. Use [Author a blueprint](blueprint-standard.mdx) for the format and dependency version syntax.
-
-For model failures, inspect the model named by the diagnostic:
+Run the package checks from its parent directory.
 
 ```bash
-mn model list
-mn model doctor <model-id>
+mn blueprint validate ./my-blueprint
+mn blueprint doctor ./my-blueprint --check-only
 ```
 
-Correct hardware, service, input, or version requirements before retrying. A force override can bypass checks and is not a routine repair.
+Fix the first blocking issue. For model or service errors, check the expected owner with `mn node show <node>` and use [model diagnostics](./model-runtime.mdx) or [service checks](./services-and-health-checks.mdx). For an inaccessible file, check the staging path and runner in [Docker and OpenShell](./docker_and_openshell_for_blueprints.mdx).
 
-## A run is quiet or has failed
+If your connection dropped after preparation started, use `mn operation show <operation-id>` or `mn operation watch <operation-id>` with the receipt you have. Check whether the original job or run exists before submitting again.
+
+## A run is queued, quiet, or failed
 
 ```bash
 mn run show <run-id>
 mn run logs <run-id> --channel events
 mn run logs <run-id> --channel logs
-mn run resources <run-id>
 mn run human list <run-id> --pending
 ```
 
-Look for waiting dependencies, human requests, resource admission, or a failed step. Docker workers can buffer output while a task runs; inspect deadlines and state before concluding that silence means failure. For finished work, collect outputs with `mn run result <run-id>`.
+- For `queued`, inspect the capacity blocker and the owner. See [Inspect or defer a queued run](./schedules-and-events.mdx#inspect-or-defer-a-queued-run).
+- For a pending human request, review it and respond as described in [Monitor and control runs](./monitor.mdx#human-collaboration).
+- For an eligible failed run with a saved checkpoint, preview recovery with `mn run retry <run-id> --dry-run`. See [Manual checkpoint retry](./reliability.mdx#manual-checkpoint-retry).
+- If work is terminal while capacity remains reserved, check for pending cleanup on the owner.
 
-Ctrl+C from `mn run watch` detaches only. To stop unfinished work deliberately, use `mn run cancel <run-id>`; this cannot reverse external actions already performed.
+## A peer or HTTP request fails
 
-## Connected peers do not share one run
-
-This is expected. One job executes on one owner node. Use [Connect runtime nodes](cluster.mdx) to inspect membership and owner eligibility. An unavailable owner can leave cached summaries readable while live control, logs, and artifacts fail; connecting another peer does not take over that run.
-
-## HTTP requests fail
-
-| Response | Next action |
+| Symptom | Check |
 | --- | --- |
-| `401` or `403` | Check the API bearer credential and access boundary |
-| `404` | Check the canonical `/api/v1` route and public resource ID |
-| `409` | Inspect current state or idempotency-key reuse |
-| `412` | Fetch the resource again and use its current ETag |
-| `428` | Supply the required `If-Match` header |
+| `MN_NODE_UNAVAILABLE` | Check the owner's advertised address and health. Reconnect to the owner for current data. |
+| HTTP `401` | Use the surface API bearer token. Keep the runtime control token for Core attachment. |
+| HTTP `412` or `428` | Read the current resource and send its ETag in `If-Match`. |
+| Interrupted event stream | Reconnect with the last applied event ID, then refresh the run or operation snapshot. |
 
-For asynchronous requests, inspect the returned Operation until it completes or fails. Follow [HTTP API](api.mdx) for request examples and stream recovery.
+See [Connect runtime nodes](./cluster.mdx) and [HTTP API](./api.mdx) for connection and request details.

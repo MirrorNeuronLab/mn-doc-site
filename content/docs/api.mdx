@@ -1,103 +1,104 @@
 ---
 title: "HTTP API"
-description: "Create jobs, start runs, follow progress, and retrieve outputs from your application."
+description: "Create jobs, start runs, follow events, and download outputs from your application."
 ---
 
 ## Connect and authenticate
 
-The default base URL is `http://localhost:54001/api/v1`. Start the runtime first. From a terminal on that host:
+Run the API on a [combined or client installation](./installation.mdx) with a saved runtime connection. The default base URL is `http://localhost:54001/api/v1`. Set the base URL in your shell and check the API process.
 
 ```bash
-curl --fail-with-body -sS http://localhost:54001/api/v1/health
+MN_API_BASE=http://localhost:54001/api/v1
+curl --fail-with-body -sS "$MN_API_BASE/health"
 ```
 
-Verify `api_contract` is `mirrorneuron.rest.v1`. The health endpoint is unauthenticated. When `MN_API_TOKEN` is configured, every other request requires `Authorization: Bearer <token>`. The examples below include that header; substitute your token and keep it out of source control and shared terminal logs.
+Check that `api_contract` is `mirrorneuron.rest.v1`. The health response also reports whether API authentication is enabled. Set `SURFACE_API_TOKEN` privately to the API's `MN_API_TOKEN` or the token in its installation's `api.token` file. The runtime control token is used separately to attach the surface. Call `GET /runtime/health` to check the connected runtime. For the full schema, open `/api/v1/openapi.json` on your API host.
 
 ## Upload a package and create a job
 
-Run from the directory containing a reviewed `worker-bundle.zip`. Uploading stages the package; creating a job can prepare its declared resources. Review code and external actions first.
+Review the bundle code and external actions before uploading. Send `worker-bundle.zip` as a multipart file from the directory containing it.
 
 ```bash
-curl --fail-with-body -sS -X POST http://localhost:54001/api/v1/bundles \
-  -H "Authorization: Bearer <token>" \
+curl --fail-with-body -sS "$MN_API_BASE/bundles" \
+  -H "Authorization: Bearer $SURFACE_API_TOKEN" \
   -F "bundle=@./worker-bundle.zip"
 ```
 
-Use the returned `bundle_id` to create the durable definition. Replace `<uuid>` with a fresh request identifier:
+Replace `<bundle-id>` with the returned ID and `<create-key>` with a unique key for this request. Use `blueprint_id` in place of `bundle_id` to create a catalog job. Use `resolved_configuration` when supplying saved job settings.
 
 ```bash
-curl --fail-with-body -i -X POST http://localhost:54001/api/v1/jobs \
-  -H "Authorization: Bearer <token>" \
+curl --fail-with-body -i "$MN_API_BASE/jobs" \
+  -H "Authorization: Bearer $SURFACE_API_TOKEN" \
   -H "Content-Type: application/json" \
-  -H "Idempotency-Key: <uuid>" \
+  -H "Idempotency-Key: <create-key>" \
   -d '{"bundle_id":"<bundle-id>"}'
 ```
 
-A catalog job can use `blueprint_id` instead of `bundle_id`. Keep the returned public `job_id` and ETag. Job configuration is supplied as `resolved_configuration` when creating or updating a definition.
+Save the job ID and ETag. Creating a job can prepare the package's declared resources. Start a run separately when you are ready to execute it.
 
 ## Start and inspect a run
 
-Use a new idempotency key for each intended execution:
+Replace `<job-id>` with the job ID and `<start-key>` with a new key for this execution. Supply the job's expected `inputs`.
 
 ```bash
-curl --fail-with-body -i -X POST http://localhost:54001/api/v1/jobs/<job-id>/runs \
-  -H "Authorization: Bearer <token>" \
+curl --fail-with-body -i "$MN_API_BASE/jobs/<job-id>/runs" \
+  -H "Authorization: Bearer $SURFACE_API_TOKEN" \
   -H "Content-Type: application/json" \
-  -H "Idempotency-Key: <uuid>" \
+  -H "Idempotency-Key: <start-key>" \
   -d '{"inputs":{}}'
 ```
 
-A `202 Accepted` response means execution was accepted, not completed. Use the returned public `run_id`:
+`202 Accepted` returns a run receipt. Use its public `run_id` at `GET /runs/{run_id}`. A catalog job can also accept `config_overrides`. Changes to resolved settings can reprepare the saved definition before execution.
 
-```bash
-curl --fail-with-body -sS http://localhost:54001/api/v1/runs/<run-id> \
-  -H "Authorization: Bearer <token>"
-```
+### Queue work when the owner is busy
 
-Catalog-backed jobs also accept `config_overrides` at run creation. These overrides reprepare the job definition; `inputs` is workflow input, not blueprint configuration. Internal `runtime_run_id` values must not appear in client URLs.
+Use `POST /jobs/{job_id}/run-admission-checks` with `{"action":"start"}` to read a snapshot of the owner's capacity. The owner checks capacity again at start. A start with default `admission_policy: "start_now"` rejects a busy owner. To accept a wait, send `"admission_policy":"enqueue_if_busy"` in the start request. Keep the returned ID and inspect its `admission` and `placement` fields if the status is `queued`. The owner starts compatible work when capacity allows.
 
 ## Pause, resume, or cancel
 
 ```bash
-curl --fail-with-body -sS -X PATCH http://localhost:54001/api/v1/runs/<run-id> \
-  -H "Authorization: Bearer <token>" \
+curl --fail-with-body -sS -X PATCH "$MN_API_BASE/runs/<run-id>" \
+  -H "Authorization: Bearer $SURFACE_API_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"desired_state":"paused"}'
 ```
 
-Use `running` to resume and `cancelled` to cancel. Invalid transitions return `409`. Cancellation cannot reverse external actions already performed.
+Use `running` to resume or `cancelled` to cancel. Send `{"desired_state":"cancelled","queued_only":true}` to cancel an unstarted run only. Invalid transitions return `409`. If work has already performed external actions, handle those actions in the external system.
+
+### Checkpoint retry
+
+To retry an eligible failure, first `POST /runs/{run_id}/retry-plans` with `{"configuration_overrides":{}}`. Send the plan's `expected_attempt` and `checkpoint_revision` in `POST /runs/{run_id}/retries` along with the required `Idempotency-Key`. A retry retains the run ID. See [Manual checkpoint retry](./reliability.mdx#manual-checkpoint-retry).
 
 ## Follow progress and retrieve outputs
 
 ```bash
-curl -N http://localhost:54001/api/v1/runs/<run-id>/events/stream \
-  -H "Authorization: Bearer <token>"
+curl --fail-with-body -sS -N "$MN_API_BASE/runs/<run-id>/events/stream" \
+  -H "Authorization: Bearer $SURFACE_API_TOKEN"
 ```
 
-Persist each applied event ID and reconnect with `Last-Event-ID`. Use ordinary Run GETs and event history to recover state. Streams close after terminal events. Run artifact and output lists are available at `/runs/<run-id>/artifacts` and `/runs/<run-id>/outputs`; follow returned download URLs. Review warnings and outputs before treating a completed execution as a correct result.
+Persist the last applied event ID and send it in `Last-Event-ID` on reconnect. A stream closes after a terminal event. Read the current run and its event history to reconcile gaps. Use `GET /runs/{run_id}/outputs` or `GET /runs/{run_id}/artifacts` and follow the returned download URLs.
 
-## Collections and concurrent updates
+## Pagination and safe updates
 
-Collections return `items` and `next_page_token`. Request `page_size` (default 50, maximum 200), then pass the returned opaque `page_token` unchanged. Tokens expire after 24 hours and are bound to the original query and principal.
-
-Send `Idempotency-Key` for non-idempotent POSTs. Replay records last 24 hours; a reused key with a different request returns `409`. Persistent job, schedule, deployment, model registration, and model installation updates/deletions require the current ETag in `If-Match`. Missing conditions return `428`; stale conditions return `412`.
-
-Errors use `application/problem+json`, including `code`, `detail`, and `request_id`. Unknown request fields are rejected.
+- Collections return `items` and `next_page_token`. Use `page_size` from 1 to 200 (default 50). Pass the next token unchanged with the same filters. Tokens expire within 24 hours and can be lost on restart or eviction.
+- Keep the same idempotency key and request body after an uncertain response. Check the existing run or operation before submitting fresh work. A conflicting reuse of a retained key returns `409`.
+- Where an endpoint requires `If-Match`, send the ETag from the latest read. Missing conditions return `428` and stale conditions return `412`.
+- Errors use `application/problem+json` with a `code`, `detail`, and `request_id`. Background failures appear on the accepted operation.
 
 ## Prepare a catalog blueprint
 
-`POST /blueprints/<blueprint-id>/additions` with `{ "force": false }` starts preparation and returns an Operation. Poll the returned `Location` or use `/operations/<operation-id>/events/stream` until `completed` or `failed`. Display supplied progress labels and inspect the terminal error before retrying with a new idempotency key.
+`POST /blueprints/{blueprint_id}/additions` with `{"force":false}` returns an operation. Follow its `Location` or `GET /operations/{operation_id}/events/stream` until it completes or fails. Preview removal with `POST /blueprints/{blueprint_id}/removals` and `{"dry_run":true}` before confirming a request that could delete owned resources.
 
-> Removal can delete blueprint-owned resources. Preview with `POST /blueprints/<blueprint-id>/removals` and `{ "dry_run": true }`. To retain resources, submit `{ "keep_resources": true, "keep_models": true }` with a new key. Re-adding cannot recover deleted data.
+## Job UI relay
 
-## Query a job through MCP
+Use `GET /jobs/{job_id}/ui` to read the current job UI descriptor. Forward HTTP to `/jobs/{job_id}/ui-proxy/{port}/{path}` and WebSocket connections to `/jobs/{job_id}/ui-proxy/{port}/ws/{path}`. The runtime checks the active execution and declared ports. The relay strips the surface credential before forwarding to the worker.
 
-A package with the `mn.response` extension enabled exposes a job-scoped Streamable HTTP endpoint at `/jobs/<job-id>/mcp`. Configure your MCP client with that URL and the same bearer credential. Tools include `get_job_profile`, `get_latest_run`, `get_job_context`, and `ask_job`. The last answers questions from bounded job evidence without starting a run. Legacy collaboration-enabled jobs expose the first three tools only.
+## Connect a job to an MCP client
 
-Use this interface for purpose, status, and published evidence. It is not a general log/artifact download or job-control interface.
+Prepared jobs can expose supervision at `/api/v1/jobs/{job_id}/mcp` over Streamable HTTP. Use `get_capabilities` and `get_user_manual` to see the job's current tools and permissions. The supervision profile can read bounded status and results and can also start, pause, resume, or stop runs. Supply stable request IDs to tools that change state. Jobs with a response service may additionally offer `ask_job`.
 
-## Route compatibility and cleanup
+Use the surface bearer credential for trusted direct access or a job-scoped OAuth connection for an external MCP client. See [Execution and data access](./security.mdx#secrets-and-data-movement) before enabling access.
 
-`/api/v2`, `/runtime-runs`, WebSocket routes, and blueprint installation aliases are removed. Use canonical `/api/v1` resources and SSE.
+## Related interfaces
 
-Preserve outputs and diagnostic evidence before deleting runs or jobs. For a local CLI cleanup procedure, see [Monitor](monitor.mdx). Refer to [CLI reference](cli.mdx) when operating the same resources from a terminal.
+Use [Schedules and events](./schedules-and-events.mdx) to create or manage automatic starts. Use [Monitor and control runs](./monitor.mdx) for human responses, downloads, and CLI cleanup.

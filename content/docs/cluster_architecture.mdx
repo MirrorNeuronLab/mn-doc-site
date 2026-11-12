@@ -1,10 +1,16 @@
 ---
 title: "Federation behavior"
-description: "Understand ownership and availability when connecting runtime nodes."
+description: "Understand what your runtime shares with peers and where to find authoritative job state."
 ---
 
-Each runtime owns an independent coordination store and executes its own jobs. A peer can forward requests to a job's owner and retain cached summaries. All workers of a job remain on that owner.
+Connect peers through a trusted network using [Connect runtime nodes](./cluster.mdx). A surface can reach multiple peers through one entry runtime. When you start a job, one selected runtime owns the job, its runs, and its durable execution state.
 
-When a peer cannot reach an owner, cached summaries may remain visible, but live mutation, streaming, logs, and artifact requests can fail with `503 MN_NODE_UNAVAILABLE`. Reconnect to the owner; a second node does not automatically take over its active jobs.
+## Read remote state
 
-Use [Connect runtime nodes](cluster.mdx) for setup and verification, [Monitor](monitor.mdx) for execution status, and [Reliability](reliability.mdx) for recovery boundaries.
+An entry node forwards a request to the job's owner. A cached summary can still appear when that owner is unreachable. Check its availability and last sync time before using it to make an operational decision. Streams, logs, and artifacts require access to the owner.
+
+## Plan for an unavailable owner
+
+A partition can leave work running on the owner. Recovery stays with that owner and its writable Redis store. File synchronization can copy bundles and outputs between peers while the owner's Redis retains execution authority.
+
+Use [Moving an idle job](./cluster.mdx#moving-an-idle-job) to transfer a quiescent job intentionally. See [Redis failover](./redis-ha.mdx) to give one owner's store a failover path.

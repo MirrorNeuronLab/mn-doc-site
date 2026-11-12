@@ -1,19 +1,19 @@
 ---
 title: "Keep model context bounded"
-description: "Handle long-running evidence, context limits, and uncertain model calls."
+description: "Keep evidence traceable and model requests within the serving window."
 ---
 
-Use this guide when a workflow accumulates more evidence than fits in one model request. The Python SDK's `ContextSession` uses Membrane working memory to select bounded evidence and verify it against immutable source artifacts.
+Use Membrane working memory and the SDK's `ContextSession` when a workflow gathers more evidence than fits in a single model request. Keep source artifacts so a later decision can verify the exact records it uses.
 
 ## Prepare a model turn
 
-1. Preserve tool results and evidence as source artifacts.
-2. Declare the decision focus, required fields, evidence references, and topics.
-3. Select a bounded packet of supporting and opposing evidence.
-4. Verify source ranges and count the complete model request, including instructions, schemas, current input, and output reserve.
-5. Dispatch only after the full request fits; preserve the response and completion receipt.
+1. Save tool results and source evidence as immutable artifacts.
+2. Declare the decision focus, required fields, and evidence references.
+3. Select a bounded packet of supporting and opposing evidence. Check selected ranges against the saved source bytes.
+4. Count the full request, including instructions, tool schemas, current input, and output allowance.
+5. Dispatch when the request fits and retain the response receipt.
 
-Generated summaries help navigate records; citations must resolve to source bytes. Context selection reads existing evidence and does not dispatch domain tools or change the workflow graph.
+Use summaries to find evidence. Cite the verified source range in the final output. Runtime memory is run-scoped by default. Use explicit job scope only for authorized history shared across that job's runs.
 
 ## Budget the full request
 
@@ -21,34 +21,22 @@ Generated summaries help navigate records; citations must resolve to source byte
 input_budget = window_tokens - output_reserve - safety_tokens
 ```
 
-SDK defaults are a 16,384-token window, 2,048 output tokens, and a 512-token safety reserve. These are policy defaults, not proof of a selected model's capacity. Configure the model's supported window and retain final gateway admission checks. Required inputs must not be silently truncated to fit.
+The SDK policy defaults to a 16,384-token window, 2,048 output tokens, and a 512-token safety reserve. Set the policy for your serving model and leave room for the complete request. The gateway can apply its own admission or output limit.
 
-## Handle failures explicitly
+## Handle failures
 
-| Signal | Application action |
+| Signal | Next action |
 | --- | --- |
-| `NeedsPartition` | Split the decision into smaller calls and carry verified results forward |
-| `AmbiguousInvocation` | A prior dispatch has no durable response; resolve the uncertainty or use an explicit new retry identity |
-| Source hash or range mismatch | Reject the evidence and investigate its provenance |
-| Storage, call, or deadline budget exceeded | Stop or return a workflow-defined incomplete result |
-| Membrane or model unavailable | Report the dependency failure; do not fabricate an answer |
+| `NeedsPartition` | Divide the decision into smaller requests and carry verified results forward. |
+| `AmbiguousInvocation` | Inspect the dispatch and receipt before choosing whether to use a new retry identity. |
+| Source hash or range mismatch | Reject that evidence and check the source artifact. |
+| Budget exhausted | Stop or return an explicit incomplete result. |
+| Context service or model unavailable | Check runtime health and the blueprint's declared dependencies. |
 
-A completed event can replay its durable result. Reusing the same identity with different content fails. An uncertain model call is not automatically repeated because it may already have incurred a charge or produced an external effect.
+A completed invocation can replay its saved result. An uncertain invocation may have reached the provider, so reconcile it before dispatching again.
 
-## Diagnose a runtime dependency
+## Diagnose and protect the context service
 
-With the CLI installed:
+Use `mn runtime doctor` on the runtime host to inspect the context service. Use `mn blueprint doctor ./my-blueprint` from the package's parent directory to check declared requirements. Keep the service on a trusted network and scope access to the job, run, and principal. Keep private evidence out of progress messages and logs.
 
-```bash
-mn runtime status
-mn runtime doctor
-mn blueprint doctor ./my-blueprint
-```
-
-Replace `./my-blueprint` with the local package path. Check the reported context service and model requirements before rerunning. See [Troubleshooting](troubleshooting.mdx).
-
-## Protect evidence
-
-Keep the context service on the trusted runtime network and configure `MN_CONTEXT_AUTH_TOKEN` when bearer protection is required. Job, run, and principal identity belong to the application boundary, outside model-controlled arguments. Do not put private source text into public progress or logs.
-
-See [Python SDK](sdk.mdx) for package integration and [Author a blueprint](blueprint-standard.mdx) for the `mn.context` extension.
+See [Author a blueprint](./blueprint-standard.mdx#extensions) for `mn.context` and [Configure and diagnose models](./model-runtime.mdx) for the serving route.

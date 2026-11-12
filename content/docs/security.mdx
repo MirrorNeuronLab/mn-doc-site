@@ -1,127 +1,43 @@
 ---
 title: "Review execution and data access"
-description: "Check worker permissions, credentials, and network boundaries before using real inputs."
+description: "Review workers, credentials, network access, and outputs before running a blueprint."
 ---
 
-This is the canonical security and privacy guide for MirrorNeuron operators and contributors. Use it before you run a third-party bundle, add a connector, expose a listener, configure a cluster, or process real data.
+A blueprint can execute code, access files, pass environment variables, and call services. Use approved sample inputs while you verify its behavior.
 
-## Security scope
+## Review a blueprint before launch
 
-MirrorNeuron can execute worker code, access declared files, pass selected environment variables, call models/services, persist job state, and coordinate runtime nodes. The runtime does not infer your data classification, trust policy, or allowed destination; blueprint authors and operators must define and review those boundaries.
+1. Read `manifest.json`, the referenced execution and configuration documents, and the code in `payloads/`.
+2. Identify the runner, mounts, uploads, `pass_env` entries, dependency setup hooks, and published ports.
+3. Check model endpoints, connectors, external writes, and output destinations.
+4. Validate the package with `mn blueprint validate ./my-blueprint` from its parent directory with a local runtime attached.
+5. Use the package's sample mode or approved test data first. Inspect run events and results before enabling live effects.
 
-## Before you begin
+## Choose an execution boundary
 
-- Identify the runner for each worker: HostLocal, DockerWorker, DockerCompose, or OpenShell.
-- Read `manifest.json`, `payloads/`, policy files, service declarations, and `pass_env` entries.
-- Identify every listener, external provider, and output destination.
-- Keep Redis, API, gRPC, artifact sharing, and cluster traffic on trusted networks.
-- Use synthetic or approved non-sensitive inputs for development and preflight.
+| Runner | What to review |
+| --- | --- |
+| HostLocal | Worker commands run with the runtime process's permissions. Use trusted code and scope accessible credentials. |
+| DockerWorker or Docker Compose | Review image provenance, privileges, mounts, environment, and port publishing. |
+| OpenShell | Review policy, uploads, allowed network routes, and declared output handoff. |
+| Federated execution | All workers in one job run on its owner. Treat connected runtimes as one trust domain. |
 
-## Assets and trust boundaries
-
-| Boundary | What crosses it | Operator responsibility |
-| --- | --- | --- |
-| Operator → runtime | Bundles, commands, configuration, credentials. | Only trusted operators should submit to a shared runtime. |
-| Runtime → worker payload | Manifest fields, payload files, selected environment variables, messages. | Treat payloads as application code, not trusted runtime code. |
-| HostLocal worker → host | Commands, files, processes, and host credentials reachable by the process. | Use only for trusted payloads and narrow environment access. |
-| OpenShell worker → sandbox | Uploads, policy-controlled commands, services, stdout/stderr, artifacts. | Review policy, mounts/uploads, service exposure, and egress. |
-| Worker → external service | Prompts, files, metadata, requests, and provider credentials. | Explicitly approve data transfer and scope credentials to the worker. |
-| Runtime → Redis | Jobs, events, agent snapshots, leases, bundle state, node state. | Protect Redis as a control-plane data store and use Sentinel appropriately for HA. |
-| Node → node | Cluster membership, scheduling, runtime traffic, shared credentials. | Treat a cluster as one trust domain and protect membership credentials. |
-| Stable Job → supervisory MCP client | Bounded blueprint profile, safe non-secret configuration, schedule, lifecycle, latest-run summary, and structured evidence. | Require the API bearer boundary when configured, validate Job/blueprint identity, and treat returned work context as potentially sensitive. |
-
-## Execution safety
-
-### HostLocal
-
-HostLocal workers run directly on the machine. They can act with the permissions of the runtime process. Do not use HostLocal for unreviewed, third-party, or multi-tenant payloads.
-
-### OpenShell
-
-OpenShell provides a stronger execution boundary. It does not remove the need to review sandbox policy, uploads, mounted data, network access, environment variables, and exposed services. A sandboxed worker can still leak data or spend money through an allowed external integration.
-
-### Docker execution
-
-DockerWorker and DockerCompose use prepared images or service projects. Review bind mounts, container privileges, environment, published ports, and image provenance; container execution is not a blanket guarantee of isolation.
-
-### Cluster execution
-
-Federated nodes keep independent coordination stores and execute each job on its owner Core. Registration uses join credentials; protect and rotate them with `mn node refresh-token`. Federation does not provide automatic takeover of an offline owner. Keep Redis, gRPC, artifact sharing, and model gateways inside the intended trusted network boundary.
+Resource reservations track capacity for cooperating workloads. Use runner and host controls for filesystem, process, and network isolation. See [Prepare files and services for Docker and OpenShell](./docker_and_openshell_for_blueprints.mdx).
 
 ## Local defaults and listener checks
 
-The deployed defaults include:
+Run `mn runtime status` or `bin/mn-runtime status` on the installation host. Verify Core, API, Web UI, and any model gateway against the addresses you intend to expose. Core's default published host port is `55051` on loopback. The installer can bind the API beyond loopback when the Compose Web UI is enabled. The same-origin Web UI proxy can send the API credential, so restrict the Web UI listener as well.
 
-```bash
-export MN_REDIS_URL="redis://127.0.0.1:6379/0"
-export MN_API_PORT="54001"
-export MN_GRPC_PORT="55051"
-```
-
-Verify the actual local deployment rather than assuming defaults:
-
-```bash
-mn runtime status
-mn runtime doctor
-```
-
-The model gateway commonly uses port `4000` when enabled; the Web UI default is port `55173`. See [Environment Variables](env_variables.mdx) for all listener and bind-host settings.
-
-Warning: setting a listener host such as `MN_API_HOST=0.0.0.0` exposes it beyond localhost. Do so only behind a trusted network boundary with appropriate API authentication and review of CORS, reverse-proxy, and firewall configuration.
+Before enabling remote access, choose a trusted network or secure tunnel and review authentication, CORS, and firewall rules. Protect Redis and any shared storage or model gateway listeners. See [Runtime configuration](./env_variables.mdx).
 
 ## Secrets and data movement
 
-- Include only the minimum required environment variables in `pass_env`.
-- Keep credentials out of manifests, payloads, example files, and committed configuration.
-- Treat logs, run stores, backups, and bundle archives as potentially sensitive. They can contain inputs, output artifacts, configuration, event history, or derived data.
-- Treat `payloads/skills`, `payloads/agents`, wheels, model templates, and model
-  files as executable or executable-adjacent supply-chain inputs. Review
-  package metadata, source, licenses, and hashes before running them.
-- Air-gapped backups are complete runtime capsules, not sanitized exports.
-  Protect them like the original job and reject checksum or platform
-  compatibility failures rather than bypassing them.
-- Review model-provider and connector endpoints before assuming data remains local.
-- Rotate a credential if it may have appeared in a bundle, run record, terminal transcript, or log.
-- The stable Job MCP is informational, not an artifact or log download surface.
-  Its `mn.mcp.job_context.v1` projection removes secret/environment
-  values, raw logs, host paths, arbitrary files, and unrestricted artifact
-  bodies, and limits responses to 256 KiB and 50 evidence records. This
-  projection reduces exposure but does not make mission, schedule, safe
-  configuration, or derived results public; protect the API token and listener.
-- A response-enabled Job persists bounded conversation content under that
-  Job's data directory. Question and answer content must not appear in logs or
-  lifecycle events. Archive, replacement, reset, and deletion use the stable
-  Job lifecycle; data reset clears both conversation and Job RAG state.
+- Keep the runtime control token, surface API bearer token, and peer credentials private. They authenticate different connections.
+- Pass only the credentials each worker needs. Keep secret values out of blueprints, provider files, logs, and shared transcripts.
+- Protect run artifacts, exported bundles, and job backups as you would the source data. They may include inputs, outputs, settings, or history.
+- Check external model and connector destinations before sending files or prompts. Keep context-service access on the trusted runtime network.
+- For external MCP access, use a job-scoped OAuth connection over trusted HTTPS. Review `get_capabilities` first. A job can expose lifecycle controls and declared domain effects in addition to bounded context and results. See [Connect a job to an MCP client](./api.mdx#connect-a-job-to-an-mcp-client).
 
-## Bundle review procedure
+## Respond to a suspected exposure
 
-Before launching a bundle from another person or repository:
-
-1. Read `manifest.json`, every referenced role and extension document, and all payload files.
-2. Identify HostLocal commands, OpenShell policies, uploads, service declarations, and `pass_env` values.
-3. Identify model providers, external API destinations, output skills, and network listeners.
-4. Validate the bundle:
-
-   ```bash
-   mn blueprint validate <bundle_folder>
-   ```
-
-5. Start with mock, dry-run, quick-test, or sample configuration when available.
-6. Launch only on a trusted runtime and inspect the resulting job/events before enabling real side effects.
-
-## Incident evidence and response
-
-If you suspect an exposure:
-
-1. Cancel the affected run if doing so is safe: `mn run cancel <run-id>`.
-2. Preserve the job ID, run ID, timestamps, sanitized configuration, and relevant event/log records.
-3. Rotate potentially exposed credentials and remove access where possible.
-4. Do not publish exploit details or secrets in an issue. Use the project's private security-reporting channel or contact maintainers privately.
-
-## Related pages
-
-- [Why MirrorNeuron](why-mirrorneuron.mdx)
-- [Core Concepts](core-concepts.mdx)
-- [Blueprint Standard](blueprint-standard.mdx)
-- [Redis High Availability](redis-ha.mdx)
-- [Troubleshooting](troubleshooting.mdx)
+If you can safely stop affected work, cancel the run. Save the job ID, run ID, timestamps, and sanitized diagnostic evidence. Rotate exposed credentials and remove unintended access. Check the owning runtime for cleanup acknowledgement when a federated job shows `delete_pending`. Report security details privately to the maintainers.

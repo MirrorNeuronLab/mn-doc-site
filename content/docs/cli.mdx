@@ -1,268 +1,114 @@
 ---
 title: "CLI reference"
-description: "Commands for blueprints, durable jobs, runs, models, and runtime services."
+description: "Find commands for blueprints, jobs, runs, schedules, models, and runtime nodes."
 ---
 
-`mn` is the operator interface for MirrorNeuron blueprints, runs, models, and
-runtime services. The CLI uses resource-oriented nouns and a small common verb
-set:
-
-- `list` shows a collection.
-- `show` returns stored facts about one resource without active probes.
-- `status` summarizes live runtime state.
-- `doctor` runs deep diagnostics and supplies fixes.
-- `validate` checks static input without mutation.
-- `add`, `update`, and `remove` manage registered resources.
-- `create` and `delete` create or irreversibly delete durable data.
+Use `mn --version` to check your installed CLI and `mn <group> <command> --help` to see its options. See [Install MirrorNeuron](./installation.mdx) to connect the CLI to a runtime.
 
 ## Command tree
 
-{/* BEGIN GENERATED MN COMMAND TREE */}
 ```text
 blueprint  list add show update remove run validate doctor cleanup export
-job        list create show start archive reset-data delete
-run        list show watch logs result resources compare pause resume cancel delete
+job        list create backup restore show relocate analysis start archive reset-data delete
+schedule   list show set-time cancel
+run        list show info watch logs result resources compare pause resume retry cancel delete
 run human  list respond ack
-model      list add show probe update remove doctor
-runtime    start stop status doctor cleanup restart-sidecars ensure-context-engine update
+model      list add show probe update remove doctor start stop unload
+runtime    start stop status reconnect doctor cleanup restart-sidecars ensure-context-engine upgrade
 node       list show add remove reconcile drain undrain maintenance refresh-token
 operation  show watch
 resource   show usage set
 service    list show
 ```
-{/* END GENERATED MN COMMAND TREE */}
 
-Every leaf command accepts `--json`. `--debug` is the single root diagnostic
-flag; the former root `--verbose` option is not supported.
+## Output and automation
 
-## Common output
+Add `--json` to a command for structured output. One-shot responses use schema `mn.cli/v1` with `ok`, `data` or `error`, `warnings`, and `meta`. Followed commands use newline-delimited `mn.cli.stream/v1` records. Progress and diagnostics go to stderr. Set `MN_CLI_OUTPUT=plain` for plain text or `NO_COLOR=1` to remove color. Use `mn --debug` before the group to show additional sanitized diagnostics.
 
-Default output is concise terminal text. Results go to stdout. Progress,
-warnings, and errors go to stderr. `MN_CLI_OUTPUT=plain` removes decoration but
-does not change the information returned; `NO_COLOR=1` removes color only.
+| Exit code | Meaning |
+| --- | --- |
+| `0` | Success |
+| `1` | Operational or critical diagnostic failure |
+| `2` | Usage, validation, missing resource, or confirmation failure |
+| `13` | Authorization failure |
+| `130` | Interrupted command |
 
-One-shot `--json` output uses this envelope:
-
-```json
-{
-  "schema": "mn.cli/v1",
-  "ok": true,
-  "data": {},
-  "warnings": [],
-  "meta": {
-    "command": "mn node show",
-    "timestamp": "2026-08-14T00:00:00Z",
-    "duration_ms": 0
-  }
-}
-```
-
-Failures use the same stdout envelope with `ok: false` and an
-`error: {code, message, hint, details}` object. `watch` and followed commands
-emit newline-delimited `mn.cli.stream/v1` records. Secrets and internal
-diagnostics are redacted.
-
-Exit codes are `0` for success, `1` for an operational or critical diagnostic
-failure, `2` for usage/validation/not-found/confirmation errors, `13` for
-authorization failures, and `130` for interruption. Intentionally detaching
-from a watcher is not an error.
-
-Destructive commands use these flags consistently:
-
-- `--yes` answers a confirmation and does nothing else.
-- `--force` overrides only the precondition described by that command.
-- `--dry-run` previews the action without mutation.
-
-JSON and other non-interactive destructive operations require `--yes` unless
-`--dry-run` is used.
+Where offered, `--dry-run` previews the action and `--yes` confirms it. In non-interactive or JSON mode, destructive operations need `--yes` or `--dry-run`. Check help for what a command's `--force` overrides.
 
 ## Blueprints
 
-```bash
-mn blueprint list
-mn blueprint show <blueprint-id>
-mn blueprint add <blueprint-id>
-mn blueprint update <blueprint-id>
-mn blueprint update --all
-mn blueprint remove <blueprint-id> --yes
-mn blueprint validate ./path/to/blueprint
-mn blueprint doctor ./path/to/blueprint
-mn blueprint run ./path/to/blueprint
-mn blueprint run <catalog-id>
-mn blueprint cleanup --dry-run
-```
+| Task | Command |
+| --- | --- |
+| Browse the CLI's configured catalog | `mn blueprint list` |
+| Read a blueprint's details | `mn blueprint show <blueprint-id>` |
+| Prepare a catalog blueprint | `mn blueprint add <blueprint-id>` |
+| Refresh the catalog | `mn blueprint update --all` |
+| Check a local folder | `mn blueprint validate ./my-blueprint` |
+| Diagnose a local folder without preparing environments | `mn blueprint doctor ./my-blueprint --check-only` |
+| Start a catalog blueprint | `mn blueprint run <blueprint-id> --detached` |
+| Export a run report | `mn blueprint export <run-id> --format markdown --output report.md` |
 
-Local `run` and `doctor` targets must be explicit paths such as `./folder`,
-`../folder`, or an absolute path. Other values are catalog IDs.
-
-Report generation remains a blueprint operation even though it accepts a run
-ID:
-
-```bash
-mn blueprint export <run-id> --format json --output report.json
-mn blueprint export <run-id> --format markdown --output report.md
-mn blueprint export <run-id> --format html --output report.html
-```
-
-`--format` controls report content, `--output` controls its destination, and
-`--json` controls the CLI result envelope. There is no `mn run export`.
+Use an explicit path for a local package and attach to a runtime on the same machine. Catalog launches resolve the ID and input paths on the connected runtime. `--set PATH=VALUE` overrides declared settings at launch. To preview blueprint removal, use `mn blueprint remove <blueprint-id> --dry-run`. Review owned data and models before confirming. See [Choose a blueprint](./examples.mdx).
 
 ## Jobs and runs
 
-A job is a durable definition. A run is one execution of that definition.
+Run the create example from the parent of a reviewed local bundle. Then use its job ID and the run ID returned by `job start`.
 
 ```bash
-mn job list
 mn job create ./bundle --job-id daily-review
 mn job show daily-review
 mn job start daily-review
-mn job archive daily-review
-mn job reset-data daily-review --yes
-mn job delete daily-review --yes
-
-mn run list
 mn run list --job daily-review
-mn run list --follow
 mn run show <run-id>
 mn run watch <run-id>
-mn run logs <run-id> --channel logs
-mn run logs <run-id> --channel events --follow
-mn run logs <run-id> --channel all --follow
 mn run result <run-id>
-mn run resources <run-id>
-mn run compare <run-a> <run-b>
-mn run pause <run-id>
-mn run resume <run-id>
-mn run cancel <run-id>
-mn run delete <run-id> --yes
 ```
 
-`mn run result` resolves the runtime job internally and writes to
-`$MN_HOME/outputs/<run-id>` unless `--output` is supplied.
+Use `mn job start <job-id> --inputs ./inputs.json` to pass workflow inputs from a JSON file. Use `--queue` on `job start` or `blueprint run` to accept a wait for capacity. Save the returned run ID. See [Inspect or defer a queued run](./schedules-and-events.mdx#inspect-or-defer-a-queued-run).
 
-Human collaboration is grouped under the run:
+For a failed run, preview `mn run retry <run-id> --dry-run`. Retry keeps the run ID and advances the attempt. Use `--queue` to accept a wait and `--set PATH=VALUE` only for settings declared adjustable on retry. See [Manual checkpoint retry](./reliability.mdx#manual-checkpoint-retry).
+
+> Replacing a service run permanently removes the old run's history and artifacts. Download the evidence you need before replacing it.
+
+A service job allows one attached run. To replace it, use `mn job start <job-id> --run-id <new-run-id> --force --yes`. Job configuration and persistent data are retained. For pause, resume, cancellation, or deletion of one execution, see [Monitor and control runs](./monitor.mdx).
+
+## Back up, restore, or move a job
+
+Pause active runs before backup. The default air-gapped archive can include Docker images, wheels, and model files. Protect the ZIP as you would the original job data.
 
 ```bash
-mn run human list <run-id> --pending
-mn run human respond <run-id> <request-id> --decision approve
-mn run human ack <run-id> <notice-id>
+mn job backup <job-id> --output ./job-backup.zip
+mn job restore --input ./job-backup.zip --job-id <new-job-id>
 ```
+
+Restoring creates a separate job and preserves the archived execution history as evidence. Add `--start` only when you want a fresh execution after restore. For a connected destination and an idle job, see [Moving an idle job](./cluster.mdx#moving-an-idle-job). Preview data reset or job deletion with `--dry-run`. Those operations can permanently remove data.
 
 ## Models
 
-```bash
-mn model list
-mn model list --available
-mn model add <catalog-id-or-dmr-reference>
-mn model add <model> --node <node>
-mn model add <model> --local
-mn model add --file ./provider-models.json
-mn model show <model-id>
-mn model probe <model-id>
-mn model probe <model-id> --capabilities image,json-schema,stream,thinking
-mn model update <model-id>
-mn model update --all
-mn model remove <model-id> --yes
-mn model doctor <model-id>
-```
+| Task | Command |
+| --- | --- |
+| Browse the model inventory | `mn model list` or `mn model list --available` |
+| Read registered model facts | `mn model show <model-id>` |
+| Install a model on a specific node | `mn model add <model-id> --node <node>` |
+| Prepare a configured default | `mn model add --default` |
+| Diagnose the live model route | `mn model doctor <model-id>` |
+| Verify a capability | `mn model probe <model-id> --capabilities image,json-schema,stream` |
 
-`mn model probe` requires the model to be installed and routed through the
-managed LiteLLM gateway. It force-tests embeddings, image input, strict JSON
-Schema output, SSE streaming, and thinking, then writes the effective matrix to
-`$MN_HOME/models/catalog.json`. `--capabilities` accepts a comma-separated
-subset and the SDK's aliases, such as `image`, `json-schema`, and `stream`.
-
-When the selected DMR artifact is on the current node, the command runs the
-same requests directly against Docker Model Runner and fails with
-`MN_MODEL_CAPABILITY_MISMATCH` if LiteLLM changes a result. For a provider or a
-remote-owner route, only the managed LiteLLM path is tested; the JSON result
-reports the direct path as `not_run`. Exit code `0` and `status: verified` mean
-the requested probes completed, including legitimate unsupported results such
-as `embeddings: false`. Unknown results or endpoint failures return exit code
-`1`.
-
-Use `--default` while adding exactly one DMR or provider model to make it the
-highest-priority logical `default`:
-
-```bash
-mn model add hf.co/acme/chat:Q4_K_M --default
-mn model add --file ./provider-models.json --default
-```
-
-The custom choice stays registered until removed and takes priority over the
-hardware-selected Nemotron and Gemma built-ins. Those built-ins remain the
-fallback chain. Adding a different model with `--default` changes the priority
-without removing the former registration. A provider file used with
-`--default` must contain exactly one model.
-
-Create `provider-models.json` using the [provider setup example](model-runtime.mdx#register-an-openai-compatible-provider). Replace its endpoint and model values, then set the referenced credential in your environment. All entries and referenced environment variables are validated before registry or gateway changes.
+See [Configure and diagnose models](./model-runtime.mdx) for provider files, placement, and removal.
 
 ## Runtime, nodes, and resources
 
-```bash
-mn runtime start
-mn runtime stop
-mn runtime status
-mn runtime doctor
-mn runtime doctor --repair
-mn runtime cleanup --dry-run
-mn runtime cleanup --yes
-mn runtime restart-sidecars
-mn runtime ensure-context-engine
-mn runtime update
-```
+| Task | Command |
+| --- | --- |
+| Manage the installed local runtime | `mn runtime start`, `mn runtime stop` |
+| Inspect local services or the saved client connection | `mn runtime status` |
+| Diagnose a combined install | `mn runtime doctor` |
+| Check for an upgrade | `mn runtime upgrade --check-only` |
+| Preview cleanup of unused runtime resources | `mn runtime cleanup --dry-run` |
+| Connect to a runtime | `mn node add <host> --token <runtime-control-token>` |
+| View membership and node health | `mn node list`, `mn node show <node>` |
+| View capacity and observed usage | `mn resource show`, `mn resource usage` |
+| Find available services | `mn service list`, `mn service show <service-name>` |
+| Reattach to background preparation | `mn operation show <operation-id>`, `mn operation watch <operation-id>` |
 
-`runtime status` includes endpoints, component health, nodes, active jobs, and
-shared storage. `runtime doctor` adds coordination, Docker Model Runner,
-gateway, storage, and foundation checks. Repair belongs only to `doctor`.
-
-Every runtime is federation-capable and owns its own coordination store and
-jobs. Start both nodes with the same command:
-
-```bash
-# On each node
-mn runtime start
-
-# On either already-running peer, use the command printed by the other node
-mn node add <node-host> --token <join-token>
-```
-
-Successful startup prints the advertised host, gRPC endpoint, node identity,
-active join token, and exact add-node command. The token grants federation
-registration access: keep the terminal output private and rotate it with
-`mn node refresh-token` when exposed. The removed `--worker` option exits with
-code `2` and directs operators to `mn runtime start`.
-
-The printed command uses the default gRPC port (`55051`) implicitly. If the
-advertised gRPC endpoint uses another port, it includes `--grpc-port`.
-
-```bash
-mn node list
-mn node show <node>
-mn node remove <node> --yes
-mn node reconcile <node>
-mn node drain <node> --reason maintenance --wait
-mn node undrain <node>
-mn node maintenance <node> --enable
-mn node refresh-token
-
-mn resource show
-mn resource usage
-mn resource set --cpu 75 --memory 75
-mn service list
-mn service show <service-name>
-```
-
-Service readiness for a blueprint is diagnosed with `mn blueprint doctor`; a
-separate service-check command is not exposed.
-
-## Removed paths
-
-Removed commands are not aliases and never execute. They return exit code `2`
-with the exact replacement, including `runtime health`, `job inspect`,
-`job runs`, `run status`, `run monitor`, `node join/expose/leave`,
-`blueprint install/uninstall/monitor/tail/logs/stream`, `resource ports`,
-`service check`, and the old schedule verbs. The `deployment`, `schedule`, and
-`event` root command groups are not registered. To create a delayed or
-resource-wait schedule from the CLI, use `mn blueprint run <target> --schedule
-<delay-or-json>` or `--auto-schedule`.
+Use `bin/mn-runtime` in a dedicated runtime installation for lifecycle commands. See [Connect runtime nodes](./cluster.mdx) for credentials, drain, and removal.

@@ -1,56 +1,36 @@
 ---
 title: "Monitor and control runs"
-description: "Follow execution, collect outputs, and respond to human requests."
+description: "Find a run, follow progress, collect outputs, and respond to requests."
 ---
 
-Operational execution inspection belongs under `mn run`. Keep the run ID
-returned by `mn blueprint run` or `mn job start`; the job ID identifies the
-durable definition, while the run ID identifies one execution.
+Keep the run ID returned by `mn blueprint run` or `mn job start`. To find a run from a saved job, use `mn run list --job <job-id>`.
+
+## Monitor in the Web UI
+
+Open the Web UI address reported by `mn runtime status` on a combined installation. Use **Dashboard** to check the connection and runtime health. Open **Jobs** to see saved definitions or **Runs** to open one execution. The run detail shows state and workflow activity. A job that provides its own UI may also expose a separate job page.
 
 ## Runtime and run state
 
-Start with aggregate runtime health:
+Use the public run ID with the attached CLI to check status and follow activity.
 
 ```bash
-mn runtime status
-```
-
-Use deep diagnostics only when the aggregate status needs investigation:
-
-```bash
-mn runtime doctor
-```
-
-List and inspect executions:
-
-```bash
-mn run list
-mn run list --job <job-id>
 mn run show <run-id>
 mn run watch <run-id>
 ```
 
-Ctrl+C intentionally detaches from `watch`; it does not cancel the run.
+Ctrl+C detaches the watcher. The run continues on its owner. If it shows `queued`, inspect the owner, queue position, and blocker. See [Schedules and events](./schedules-and-events.mdx#inspect-or-defer-a-queued-run) to defer a queued start or cancel it before admission.
 
 ## Logs, events, and results
 
 ```bash
-mn run logs <run-id> --channel logs
-mn run logs <run-id> --channel events
 mn run logs <run-id> --channel all --follow
 mn run resources <run-id>
 mn run result <run-id>
 ```
 
-`run result` writes under `$MN_HOME/outputs/<run-id>` unless `--output` is
-supplied. Preserve logs, events, artifacts, timestamps, and sanitized
-configuration when reporting a failure.
+Use `--channel logs` for worker logs and `--channel events` for recorded state changes. `mn run result` downloads files to the client's `$MN_HOME/outputs/<run-id>`. Use `--output ./results` to choose another destination. Verify the reported downloads and review the output before using it.
 
-Blueprint report generation stays under `blueprint`:
-
-```bash
-mn blueprint export <run-id> --format markdown --output report.md
-```
+For a blueprint report, use `mn blueprint export <run-id> --format markdown --output report.md`. Preserve logs, timestamps, and artifacts when investigating a failure.
 
 ## Control
 
@@ -60,17 +40,18 @@ mn run resume <run-id>
 mn run cancel <run-id>
 ```
 
-Cancellation stops runtime work but cannot reverse an external action already
-performed by a worker. Review side-effecting adapters and idempotency before
-launch.
+A paused run can still hold capacity. Cancel unfinished work if it should stop. Handle any external effects already performed in the external system. To continue an eligible failed run from a saved checkpoint, see [Manual checkpoint retry](./reliability.mdx#manual-checkpoint-retry).
 
-> Deleting a terminal run removes stored run data. Preserve needed evidence first; deletion is not a way to stop active work.
+> Deleting a run permanently removes its stored data. An active run is cancelled as part of deletion. Download the files you need before confirming.
 
 ```bash
-mn run delete <terminal-run-id> --yes
+mn run delete <run-id> --dry-run
+mn run delete <run-id> --yes
 ```
 
 ## Human collaboration
+
+List pending requests first. After reviewing the details, choose the appropriate response or acknowledgement command.
 
 ```bash
 mn run human list <run-id> --pending
@@ -78,5 +59,4 @@ mn run human respond <run-id> <request-id> --decision approve
 mn run human ack <run-id> <notice-id>
 ```
 
-See [Troubleshooting](troubleshooting.mdx) for Redis, OpenShell, model, API, and
-cluster-specific diagnostics.
+Use the request ID for a decision and the notice ID for an acknowledgement. If progress stops after you respond, check [Troubleshooting](./troubleshooting.mdx).

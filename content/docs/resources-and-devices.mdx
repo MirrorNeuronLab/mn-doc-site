@@ -1,246 +1,58 @@
 ---
-title: "Resources And Devices"
-description: "MirrorNeuron supports a stronger resource model for scheduling AI workers across mixed machines. This model is inspired by Nomad's resources, device, network, and volume ideas,…"
+title: "Resources and devices"
+description: "Choose capacity for a run, share a node safely, and inspect queued work."
 ---
 
-# Resources And Devices
+Each run uses capacity on its job's owner. The owner checks current resources and reserves capacity before dispatch. Use `mn resource show` to inspect node inventory and `mn resource usage` to inspect observed usage. A read-only admission check is a snapshot. A start checks capacity again.
 
-MirrorNeuron supports a stronger resource model for scheduling AI workers across mixed machines. This model is inspired by Nomad's `resources`, `device`, `network`, and `volume` ideas, but v1 is scheduling, allocation metadata, and runtime environment hints only.
+## Run resource budgets
 
-It does not enforce cgroups, mount host paths, or isolate device access at the OS level.
+In a source blueprint, set `policies.resource_allocation` in `execution.json`. The default `exclusive_node` policy reserves the whole owner. Use `shared` when compatible runs should be able to share it. Shared profiles need positive `cpu_cores` and `memory_mb`. Account for peak concurrent workers, services, and managed models, including model weights, context caches, and scratch memory.
 
-## Design Concept
-
-Each agent can request:
-
-- scalar capacity: CPU, memory, disk, generic GPU count
-- rich devices: CUDA, Metal, ROCm, vendor, memory, capabilities, device IDs
-- explicit ports
-- host volumes
-- runtime drivers such as `host_local` or `openshell`
-
-The scheduler compares those requests against node inventory and active placements. A successful placement records concrete allocation metadata on the job.
-
-## Resource Request Shape
+The example below gives a CPU-only run a shared budget.
 
 ```json
 {
-  "nodes": [
-    {
-      "node_id": "gpu_worker",
-      "agent_type": "executor",
-      "resources": {
-        "cpu_cores": 2,
-        "memory_mb": 8192,
-        "disk_mb": 20480,
-        "devices": [
-          {
-            "kind": "gpu",
-            "driver": "cuda",
-            "vendor": "nvidia",
-            "min_memory_mb": 16000,
-            "capabilities": ["fp16"],
-            "count": 1
-          }
-        ],
-        "ports": [
-          {
-            "label": "api",
-            "port": 8088,
-            "protocol": "http"
-          }
-        ],
-        "volumes": [
-          {
-            "name": "models",
-            "source": "/mnt/models",
-            "target": "/models",
-            "mode": "ro",
-            "type": "host"
-          }
-        ],
-        "runtime_driver": "host_local"
-      }
+  "policies": {
+    "resource_allocation": {
+      "mode": "shared",
+      "cpu_cores": 2,
+      "memory_mb": 4096,
+      "disk_mb": 1024
     }
-  ]
-}
-```
-
-Existing manifests remain valid. Legacy `gpu_count` is treated as a generic GPU device request:
-
-```json
-{
-  "resources": {
-    "gpu_count": 1
   }
 }
 ```
 
-## Device Requests
+## Device requests
 
-| Field | Meaning |
-| --- | --- |
-| `kind` or `type` | Usually `gpu`; either may be used. |
-| `count` | Number of matching devices. Defaults to 1. |
-| `vendor` | Vendor filter such as `nvidia`, `apple`, or `amd`. |
-| `driver` | Driver/runtime capability such as `cuda`, `metal`, or `rocm`. |
-| `min_memory_mb` | Minimum memory on one device. |
-| `capabilities` | Required capability labels. |
-| `ids` | Optional exact device IDs. |
-
-Examples:
-
-CUDA only:
+A device request can select a vendor, driver, minimum memory, count, capabilities, or specific device IDs. In a shared profile, `min_memory_mb` selects hardware and `reservation_memory_mb` sets the peak budget on that device. Add the example object to the profile's `devices` array to select a CUDA GPU with at least 49,152 MiB and reserve 16,384 MiB.
 
 ```json
 {
-  "resources": {
-    "devices": [
-      {
-        "kind": "gpu",
-        "driver": "cuda",
-        "count": 1
-      }
-    ]
-  }
+  "vendor": "nvidia",
+  "driver": "cuda",
+  "count": 1,
+  "min_memory_mb": 49152,
+  "sharing": "shared",
+  "reservation_memory_mb": 16384
 }
 ```
 
-Apple Metal:
+Use `sharing: "exclusive"` to reserve a device while sharing other node capacity. Unified-memory reservations also count against host RAM. Shared managed-model profiles support one physical GPU. Use an exclusive node profile for multi-GPU managed engines.
 
-```json
-{
-  "resources": {
-    "devices": [
-      {
-        "kind": "gpu",
-        "driver": "metal",
-        "vendor": "apple",
-        "count": 1
-      }
-    ]
-  }
-}
-```
+Docker Compose services and LLM work in the same job reuse its admitted GPU allocation. Size the budget for their combined peak use. Individual inference requests have leases so cleanup can wait for in-flight work to drain.
 
-Large memory GPU:
+## Ports and volumes
 
-```json
-{
-  "resources": {
-    "devices": [
-      {
-        "kind": "gpu",
-        "min_memory_mb": 24000,
-        "count": 1
-      }
-    ]
-  }
-}
-```
+Shared profiles require fixed integer ports. With automatic allocation in supported profiles, the runtime chooses a port in the configured range and exposes it as `MN_PORT_<LABEL>`. Configure the runner to publish the listener. Volume requirements select a host path on the owner. Configure the mount in the runner. Conflicting ports and overlapping writable volumes remain exclusive across shared runs.
 
-## Ports
+Use allocation hints such as `MN_ALLOCATED_DEVICE_IDS` and `CUDA_VISIBLE_DEVICES` when choosing devices inside a worker. See [Docker and OpenShell](./docker_and_openshell_for_blueprints.mdx) for mounts and network boundaries.
 
-Ports are explicit in v1. The scheduler rejects placements that would reserve the same port on the same node.
+## Admission and queueing
 
-```json
-{
-  "resources": {
-    "ports": [
-      {
-        "label": "metrics",
-        "port": 9100,
-        "protocol": "http"
-      }
-    ]
-  }
-}
-```
+Manual starts default to `start_now`. A busy owner rejects the request before creating an execution. Use `--queue` with `mn job start` or `mn blueprint run` to accept a wait. Through the API, send `"admission_policy":"enqueue_if_busy"`. Scheduled starts can queue automatically.
 
-Supported protocols are `tcp`, `udp`, `http`, and `grpc`.
+An accepted queued run already has a run ID and an owner. It starts when compatible capacity becomes available. Use `mn run show <run-id>` to see placement and reservation state. See [Inspect or defer a queued run](./schedules-and-events.mdx#inspect-or-defer-a-queued-run).
 
-## Volumes
-
-Volumes are host-path requirements in v1. The scheduler only places a job on a node that advertises or has the requested absolute source path. Core records the allocation and injects environment hints, but it does not mount the path automatically.
-
-```json
-{
-  "resources": {
-    "volumes": [
-      {
-        "name": "cache",
-        "source": "/var/mn-cache",
-        "target": "/cache",
-        "mode": "rw",
-        "type": "host"
-      }
-    ]
-  }
-}
-```
-
-Supported modes are `ro` and `rw`. Supported type is `host`.
-
-## Runtime Environment Hints
-
-When an agent starts, allocation metadata is passed into its runtime context and safe environment hints:
-
-| Env var | Meaning |
-| --- | --- |
-| `MN_ALLOCATION_JSON` | Full JSON allocation. |
-| `MN_ALLOCATED_DEVICE_IDS` | Comma-separated selected device IDs. |
-| `CUDA_VISIBLE_DEVICES` | Selected CUDA device indices. |
-| `MN_GPU_DRIVER` | Selected GPU drivers. |
-| `MN_PORT_<LABEL>` | Reserved explicit port by label. |
-| `MN_VOLUME_<NAME>` | Allocated host volume source. |
-| `MN_VOLUME_<NAME>_TARGET` | Requested target path. |
-
-Worker code should use these hints when selecting devices, ports, and model/cache paths.
-
-## Inspect Resources
-
-```bash
-mn resource show
-```
-
-The response includes per-node scalar totals, combined cluster totals, device inventory, GPU memory totals, runtime drivers, and host path information when available.
-
-Set coarse local resource limits:
-
-```bash
-mn resource set --cpu 75 --memory 75 --gpu 100 --disk 75
-```
-
-## Validation
-
-`mn blueprint validate` rejects:
-
-- malformed `devices`, `ports`, or `volumes`
-- negative memory, count, or scalar values
-- duplicate port labels
-- duplicate volume names
-- invalid ports outside `1..65535`
-- relative volume source or target paths
-- unsupported volume modes or protocols
-- non-string `runtime_driver`
-
-## Important Code
-
-| Area | Files |
-| --- | --- |
-| Resource shape and env hints | `MirrorNeuron/lib/mirror_neuron/resource_spec.ex` |
-| Scheduler matching and allocation | `MirrorNeuron/lib/mirror_neuron/scheduler.ex` |
-| Node inventory | `MirrorNeuron/lib/mirror_neuron/resource.ex` |
-| Admission and limits | `MirrorNeuron/lib/mirror_neuron/resource_admission.ex` |
-| Runtime agent context | `MirrorNeuron/lib/mirror_neuron/runtime/job_coordinator.ex` |
-| Manifest validation | `MirrorNeuron/lib/mirror_neuron/manifest.ex` |
-| CLI commands | `mn-cli/mn_cli/libs/resource_cmds.py` |
-| SDK validation helpers | `mn-python-sdk/mn_sdk/blueprint_validation.py` |
-
-## V1 Limits
-
-- no dynamic port allocation
-- no automatic volume mounting
-- no hard device isolation
-- no global executor lease balancer yet
-- active placement metadata is used to avoid double-booking devices and ports, but host OS enforcement remains the runner's responsibility
+Pausing, automatic retries, and recovery retain the claim. Terminal work can still hold capacity while the owner stops processes, drains requests, and releases model residency. Look for verified cleanup before treating the capacity as available. See [Reliability and recovery](./reliability.mdx#cancellation-and-cleanup).

@@ -1,62 +1,80 @@
 ---
-title: "Install and verify MirrorNeuron"
-description: "Prepare a local runtime and confirm that its CLI and services are ready."
+title: "Install MirrorNeuron"
+description: "Set up a combined installation, attach a client, or install a dedicated runtime node."
 ---
 
 ## Prerequisites
 
-Install and start Docker. Local models additionally need Docker Model Runner and compatible hardware; blueprints that use an external provider may have different requirements. For source development, use Python 3.11 or newer and the deployment repository's local setup.
+Use macOS, Linux, or Windows with WSL2. Start Docker and confirm that Docker Compose is available if this machine will run workflows. A client-only installation needs network access to an existing runtime. Set up Docker Model Runner only when your [blueprint requires local models](./model-runtime.mdx).
 
-## Install from a deployment checkout
-
-From your checkout of `mn-deploy`, inspect the installer options and run it:
+Use a checkout of the deployment repository for the installer commands. If you need a checkout, clone it with Git.
 
 ```bash
-./install.sh --help
-./install.sh
+git clone https://github.com/MirrorNeuronLab/mn-deploy.git
+cd mn-deploy
 ```
 
-The installer uses default selections unless `--interactive` is supplied. Select a matching released component set with `--version <release-tag>`. Contributors using sibling runtime source repositories can use `./install.sh --mode local`.
+## Choose an installation mode
 
-Installation writes local runtime configuration and installs components. Review installer options before running it on an existing installation.
+| Install this machine as | Command | Default home |
+| --- | --- | --- |
+| A local runtime with CLI, API, and Web UI | `./install.sh` | `~/.mn` |
+| A CLI and API client for an existing runtime | `./install.sh --no-runtime` | `~/.mn-client` |
+| A dedicated runtime node with execution services | `./install.sh --runtime-only` | `~/.mn-runtime` |
+
+Run `./install.sh --help` for options. Use `--version <release-tag>` to select a release and `--interactive` to review installer selections. Set `MN_HOME` before installing to use a custom directory. Use a separate directory for each role. Combined and runtime-only installs start services by default. Add `--no-start` to start them later.
 
 ## Start and verify
 
-From any directory after installation:
+Load the combined installation's environment before checking the CLI and runtime.
 
 ```bash
+source "$HOME/.mn/env"
 mn --version
-mn --help
-mn runtime start
 mn runtime status
 mn node list
 ```
 
-Startup should report `Runtime node ready`. Resolve failed required components before launching a blueprint. If a check fails, run `mn runtime doctor` and follow [Troubleshooting](troubleshooting.mdx).
+If you installed with `--no-start`, run `mn runtime start` before checking status. Verify that required services are healthy and your local node appears in `mn node list`. Use the Web UI address in the status output to open the Dashboard. Keep any credentials printed by the installer or startup command private.
 
-Startup displays a federation join token. Keep it private; rotate an exposed token with `mn node refresh-token`.
+## Connect a client without Docker
+
+After installing with `--no-runtime`, load the client environment. Ask your runtime operator for the Core hostname, gRPC port, and **runtime control token**. Set `RUNTIME_NODE_HOST` and `RUNTIME_NODE_TOKEN` privately in the shell before running these commands.
+
+```bash
+source "$HOME/.mn-client/env"
+mn node add "$RUNTIME_NODE_HOST" --token "$RUNTIME_NODE_TOKEN"
+mn node list
+```
+
+Add `--grpc-port` if the runtime uses a port other than `55051`. For a separate runtime installation on the same machine, use `mn node add local --runtime-home "$HOME/.mn-runtime"`. The CLI and API share the saved connection. Start `mn-api` in the client shell if you need local HTTP access. See [HTTP API authentication](./api.mdx#connect-and-authenticate).
+
+## Verify a dedicated runtime
+
+For a runtime-only install, check status from its home. If you skipped startup, run the same executable with `start` first.
+
+```bash
+"$HOME/.mn-runtime/bin/mn-runtime" status --json
+```
+
+Check that `install_role` is `runtime` and that required services are healthy. Share the reachable Core endpoint and runtime control token privately with the client operator. See [network requirements](./cluster.mdx#network-requirements) for connections between machines.
 
 ## Find your services and data
 
 | Item | Default |
 | --- | --- |
-| REST API | `http://localhost:54001/api/v1` |
-| Core gRPC | `localhost:55051` |
-| Web UI | `http://localhost:55173` |
-| Local runtime state | `~/.mn` |
-| Blueprint run records | `$MN_HOME/runs/<run-id>` |
-| Downloaded run outputs | `$MN_HOME/outputs/<run-id>` |
+| REST API on the surface | `http://localhost:54001/api/v1` when running |
+| Web UI on a combined install | `http://localhost:55173` when enabled |
+| Core gRPC | Port `55051` |
+| Run records on the owning runtime | `$MN_HOME/runs/<run-id>` |
+| Results downloaded by the CLI | `$MN_HOME/outputs/<run-id>` on the client |
 
-Use `mn runtime status` to find the actual configured endpoints. [Configuration](env_variables.mdx) explains overrides. Do not share generated environment files or credentials.
+For a custom home, load its `env` file or use its `bin/mn-runtime` path. See [Configuration](./env_variables.mdx) for overrides.
 
 ## Stop services
 
-When other runs no longer need the local runtime:
+Wait for work that needs the runtime to finish before stopping it. Run `mn runtime stop` on a combined install or `"$HOME/.mn-runtime/bin/mn-runtime" stop` on a dedicated runtime. Stop a foreground client API with Ctrl+C.
 
-```bash
-mn runtime stop
-```
+For removal, back up the job data, configuration, and results you need first. From `mn-deploy`, run `./uninstall.sh` for a combined install. Use `--no-runtime` or `--runtime-only` for the corresponding role. Set `MN_HOME` if you installed into a custom directory.
 
-Keep run records and configuration needed for recovery. Removing `~/.mn` can discard runtime state; stopping services does not require deleting it.
-
-Continue with [Run your first blueprint](quickstart.mdx).
+Continue with [Run your first blueprint](./quickstart.mdx).

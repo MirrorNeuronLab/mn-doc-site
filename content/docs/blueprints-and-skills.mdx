@@ -1,13 +1,13 @@
 ---
 title: "Use workers and skills"
-description: "Connect reusable Python behavior to blueprint steps and declare its dependencies."
+description: "Connect Python handlers and reusable capabilities to steps in a blueprint."
 ---
 
-Start with the [blueprint package format](blueprint-standard.mdx). Put logical dependencies in `workflow.json`, worker configuration in `execution.json`, and package versions in `dependencies.json`.
+Start with the [blueprint package format](./blueprint-standard.mdx). Put logical dependencies in `workflow.json`, worker configuration in `execution.json`, and package versions in `dependencies.json`.
 
 ## Select Python step handlers
 
-This workflow fragment selects two Python modules:
+In a compiled blueprint, a step can name a Python module. The default step runtime calls the module's `run()` function. The dependency in this example runs intake before review.
 
 ```json
 {
@@ -19,21 +19,21 @@ This workflow fragment selects two Python modules:
 }
 ```
 
-Provide those modules in the worker's packaged Python environment. A `handler` is a module name, not `module:callable`; the default step runtime calls its conventional `run()` function. Use `execution.mode: compiled` and declare the worker image or an explicit worker choice in the execution document. This fragment is not a complete runnable package.
+This example is a workflow document. Pair it with an execution document that selects a worker and a package that makes both modules importable. Choose a compatible runner and set the worker image or worker binding for the package.
 
 ## Add reusable dependencies
 
-Declare skills and agents by distribution name and an explicit version. SDK components use `packages` records with `type: pip` and `source: gar`. Use exact versions for a reproducible release or supported constraints when your compatibility policy allows them. See [Dependency versions](blueprint-standard.mdx#dependency-versions).
+Declare a skill or agent using its distribution name and version. Include the SDK components your code uses as `packages` records in `dependencies.json`. See [Dependency versions](./blueprint-standard.mdx#dependency-versions). Use `mn.blocks` to bind reusable blueprint blocks to logical steps when you can use a block's declared inputs and outputs.
 
-For local source development, `MN_USE_LOCAL_SKILLS=1` resolves matching projects in `mn-skills` or packaged `payloads/skills` source trees. Binary mode preserves release constraints and does not automatically use bundled source. Keep the authored declarations unchanged between modes.
+For an editable source install, `MN_USE_LOCAL_SKILLS=1` resolves matching local projects in the workspace or packaged source trees. Binary preparation resolves available releases that satisfy the constraints. Review any on-install hooks as executable code.
 
-## Validate and run
+## Check dependencies before launch
 
-From the directory containing your reviewed package:
+Run the checks from the blueprint's parent directory.
 
 ```bash
 mn blueprint validate ./my-blueprint
-mn blueprint doctor ./my-blueprint
+mn blueprint doctor ./my-blueprint --check-only
 ```
 
-Replace the path with your folder. Missing worker imports, images, models, or service requirements must be fixed before launch. Follow [Quickstart](quickstart.mdx) to launch sample inputs and inspect results. Review mounts, environment, egress, and external actions before executing worker code.
+Fix missing imports, packages, images, and service requirements. For a live smoke test, use the blueprint's documented sample configuration and review access to files, credentials, and external services. See [Run your first blueprint](./quickstart.mdx) and [Prepare files and services for Docker and OpenShell](./docker_and_openshell_for_blueprints.mdx).

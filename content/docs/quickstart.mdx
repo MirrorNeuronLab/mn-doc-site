@@ -1,76 +1,59 @@
 ---
 title: "Run your first blueprint"
-description: "Validate a local package, start a run, inspect outputs, and stop unfinished work."
+description: "Check a local blueprint, start a run, and download the outputs."
 ---
-
-For developers with the CLI installed and a reviewed local blueprint package. This tutorial covers preflight, launch, inspection, and cancellation; it does not install a particular catalog or promise a domain-correct result.
 
 ## Before you begin
 
-Complete [Installation](installation.mdx). Obtain a blueprint folder from a catalog or its author, and read its README, referenced execution/configuration documents, dependencies, and payloads. Use its documented sample inputs. Commands below run from the directory containing that folder; replace `./my-blueprint` with its actual relative or absolute path.
+Complete a combined [installation](./installation.mdx) or attach your client to a runtime on the same machine. Obtain a blueprint folder and read its README, configuration, dependencies, and worker files. Use the blueprint's sample inputs for this first run. Run the commands from the folder that contains the blueprint and replace `./my-blueprint` with its path.
 
-> Review worker code, mounted files, passed environment variables, model endpoints, and external actions before launch. Validation does not establish that a package is safe to execute.
+A blueprint can execute code, read files, and call external services. Review those actions and any credentials the blueprint can use before starting it. See [Execution and data access](./security.mdx).
 
-## Step 1: Start and inspect the runtime
+## 1. Check your connection
 
 ```bash
-mn runtime start
-mn runtime status
+mn node list
 ```
 
-Resolve failed required components before submitting work. Use `mn runtime doctor` for deeper diagnostics. Startup prints a federation join credential; keep it private.
+Check that your local runtime appears. On a combined installation, run `mn runtime status` to verify service health. If you installed with `--no-start`, use `mn runtime start` first.
 
-## Step 2: Validate and diagnose the blueprint
+## 2. Check the blueprint
 
 ```bash
 mn blueprint validate ./my-blueprint
-mn blueprint doctor ./my-blueprint
+mn blueprint doctor ./my-blueprint --check-only
 ```
 
-Validation checks the local package and declared requirements. Doctor diagnoses launch prerequisites. Resolve reported models, services, inputs, or hardware requirements before continuing; see [Model Runtime](model-runtime.mdx) and [Troubleshooting](troubleshooting.mdx). There is no universal model requirement for all blueprints.
+Validation checks the package and its declared requirements. Doctor in check-only mode inspects declared dependencies. For deeper runtime probes, run it without `--check-only` after reviewing the blueprint's model and service access. Resolve errors about inputs, services, hardware, or [models](./model-runtime.mdx) before proceeding. For a remote runtime, choose a [catalog blueprint](./examples.mdx) with inputs accessible on that runtime.
 
-Local launch and doctor targets must begin with `./`, `../`, or `/`; other targets are interpreted as catalog IDs. Use [Examples](examples.mdx) to select a catalog entry.
-
-## Step 3: Launch
+## 3. Start the run
 
 ```bash
 mn blueprint run ./my-blueprint --detached
 ```
 
-Record the returned `<job-id>` and `<run-id>`. The job is a durable definition; the run is this execution. Starting a run may prepare dependencies and runtime resources and execute the blueprint's external actions. `--detached` skips the live workflow UI; it does not cancel the execution.
+Save the returned job ID and run ID. `--detached` starts the work without opening the live workflow view. If capacity blocks the start, check whether the runtime created a job. To queue a saved job, use `mn job start <job-id> --queue`. If you still need to create the job, add `--queue` to the blueprint launch. An accepted queued request already has a run ID, so track that run while it waits. See [Admission and queueing](./resources-and-devices.mdx#admission-and-queueing).
 
-## Step 4: Inspect the result
+## 4. Follow the run and retrieve the result
+
+Open the run with the public ID returned at launch.
 
 ```bash
-mn job show <job-id>
 mn run show <run-id>
 mn run watch <run-id>
+```
+
+Ctrl+C closes the watcher. The run continues on its owner. Wait for a terminal state before downloading outputs. Use the logs to check what the workflow did.
+
+```bash
 mn run logs <run-id> --channel logs
-mn run logs <run-id> --channel events
 mn run result <run-id>
 ```
 
-Ctrl+C detaches from the watcher. Inspect the terminal run state, warnings, artifacts, and any required human review before using the result. Completion means execution finished, not that its domain conclusions are correct.
-
-`run result` downloads outputs into `$MN_HOME/outputs/<run-id>` by default. Blueprint run records live under `$MN_HOME/runs/<run-id>`, with `MN_HOME` defaulting to `~/.mn`. For pending human requests and report export, see [Monitor](monitor.mdx).
+Look for the downloaded files under `$MN_HOME/outputs/<run-id>` on the machine that ran the command. Review warnings and check the outputs against the blueprint's expected result before using them.
 
 ## Clean up
 
-If the run is unfinished and should stop:
+Use `mn run cancel <run-id>` to stop unfinished work and retain its history. External actions that already happened still need to be handled in the external service. If you started the local runtime for this tutorial, stop it with `mn runtime stop` when it is idle.
 
-```bash
-mn run cancel <run-id>
-```
-
-Cancellation cannot undo external actions already performed. Preserve diagnostic records and outputs. Stop local services when other runs no longer need them:
-
-```bash
-mn runtime stop
-```
-
-## Next steps
-
-- [Examples](examples.mdx): select another blueprint.
-- [CLI Reference](cli.mdx): create reusable jobs, start runs, and inspect output.
-- [Blueprint Standard](blueprint-standard.mdx): author a package.
-- [Security Model](security.mdx): review execution and data boundaries.
+To view events, respond to a request, or troubleshoot a failed run, see [Monitor and control runs](./monitor.mdx).

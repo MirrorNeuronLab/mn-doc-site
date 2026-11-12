@@ -1,46 +1,36 @@
 ---
 title: "Choose a blueprint"
-description: "Discover catalog entries or validate a reviewed local package."
+description: "Find a blueprint in your runtime's catalog or check a package from its author."
 ---
-
-For developers and maintainers selecting a workflow from the configured catalog or a local package. This how-to covers discovery, review, preflight, and launch; it does not certify catalog contents or output quality. Sources are SDK `blueprint_source.py` and CLI blueprint resolution/launch tests. Catalog availability is version-dependent.
 
 ## Discover the active catalog
 
-From any directory with the CLI installed:
+List the catalog from your CLI installation and use an ID from that list to read its details.
 
 ```bash
 mn blueprint list
 mn blueprint show <blueprint-id>
 ```
 
-Replace `<blueprint-id>` with an ID returned by the list command. Review the package README, inputs, execution runner, model/service requirements, dependency versions, network access, and output actions. Use provided sample inputs first.
+The list reads the CLI's configured catalog. Details and launch resolve on the connected runtime, which needs a matching entry. See [Catalog configuration](./env_variables.mdx#blueprint-catalog-resolution). Review the package README for sample inputs, available runners, and model, service, or device requirements. Check what files, credentials, and external services the workflow uses.
 
-The catalog is configured by `MN_BLUEPRINT_SOURCE`, `MN_BLUEPRINT_REPO`, and `MN_BLUEPRINT_LOCAL`; see [Environment Variables](env_variables.mdx). A separately checked-out catalog is not assumed to exist beneath this runtime workspace.
+## Check a local package
 
-## Preflight a local package
-
-From the directory containing your reviewed blueprint folder:
+Attach to a local runtime and run these checks from the package's parent directory.
 
 ```bash
 mn blueprint validate ./my-blueprint
-mn blueprint doctor ./my-blueprint
+mn blueprint doctor ./my-blueprint --check-only
 ```
 
-Replace `./my-blueprint` with the actual path. Both commands must complete without blocking errors before normal launch. Validate checks the package and requirements; doctor diagnoses runtime prerequisites. Neither proves output correctness or authorization for external actions.
+Replace `./my-blueprint` with the reviewed package's path. Fix blocking errors before launch. See [Run your first blueprint](./quickstart.mdx) for the full walkthrough.
 
-## Launch and inspect
+## Launch a catalog blueprint
 
-> Launching executes the package's code and can prepare dependencies and resources. Review files, credentials, and external actions first.
-
-```bash
-mn blueprint run ./my-blueprint --detached
-```
-
-For a catalog-managed package, use its ID instead of a path:
+Use an ID from the connected runtime's catalog. For a remote runtime, supply any input paths as seen by that runtime. Starting the package can prepare dependencies and execute external actions, so start with approved sample inputs.
 
 ```bash
 mn blueprint run <blueprint-id> --detached
 ```
 
-Record the returned public run ID, then follow [Quickstart](quickstart.mdx) to inspect results and cancel unfinished work. Preserve evidence before deleting run data.
+When the Web UI is enabled, you can also open **Start a run**, choose a blueprint, review its configuration, and submit it. Use the run ID to [follow progress and collect outputs](./monitor.mdx).

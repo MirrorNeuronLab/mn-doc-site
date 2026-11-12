@@ -1,26 +1,34 @@
 ---
 title: "Blueprints, jobs, and runs"
-description: "Use the right identifier when launching, monitoring, or controlling work."
+description: "Understand what gets saved and which identifier to use for each action."
 ---
 
-| Resource | What it represents | Use it for |
+A **blueprint** packages a workflow and the files, configuration, and dependencies needed to prepare it. A **job** is a saved, configured definition on a runtime. A **run** is one execution of that definition.
+
+## Which ID should I use?
+
+| Use | For | Example |
 | --- | --- | --- |
-| Blueprint | A reusable package of workflow, execution, contracts, configuration, and dependencies | Validation and launch |
-| Job | A durable configured definition | Starting runs and managing persistent job data |
-| Run | One execution of a job | Status, logs, artifacts, pause, resume, and cancellation |
-| Operation | An accepted asynchronous administrative action | Tracking preparation or removal to completion |
+| Blueprint ID or local path | Find, check, or launch a package | `mn blueprint show <blueprint-id>` |
+| Job ID | Inspect the saved definition, start a run, or manage persistent data | `mn job show <job-id>` |
+| Run ID | Track a start, follow logs, download results, or pause and cancel execution | `mn run show <run-id>` |
+| Operation ID | Track preparation or another long-running management request | `mn operation watch <operation-id>` |
 
-Keep both IDs returned by a launch. `runtime_run_id` is internal diagnostic metadata; use the public `run_id` in HTTP URLs.
+A retry advances the **attempt** within the same run. Use the public run ID to resume observing it. Keep the attempt ID for diagnostics.
 
-```bash
-mn job show <job-id>
-mn job start <job-id>
-mn run list --job <job-id>
-mn run show <run-id>
-```
+## Batch and service jobs
 
-A workflow step describes work and its dependencies. Agents execute that work through declared runners. HostLocal uses host permissions; Docker and OpenShell have their own mount, environment, and network boundaries. Read [Security](security.mdx) before supplying real inputs.
+A batch job can have several runs. A service job has at most one attached run. Pause or resume the attached run for temporary changes. Starting a service with an attached run returns `service_run_exists`. Replacing it is a separate action that deletes the old run's history and outputs. See [Start and control jobs](./cli.mdx#jobs-and-runs).
 
-One job and its workers execute on one owner runtime node. Connecting more nodes adds placement choices for independent jobs; it does not split an individual run across them or automatically take over an unavailable owner.
+## Where work and data live
 
-Use [Quickstart](quickstart.mdx) for a complete launch procedure and [Monitor](monitor.mdx) for logs, outputs, and human requests.
+The runtime chooses one **owner node** for a job. That node manages the definition, runs, and persistent job data. If you accept a queued start, the owner tracks the request and starts it when capacity allows.
+
+| Data | On the owning runtime |
+| --- | --- |
+| Persistent data shared by a job's runs | `$MN_HOME/job-data/<job-id>` |
+| Logs, artifacts, and other run records | `$MN_HOME/runs/<run-id>` |
+
+Archiving a job prevents new work and retains its data. Run deletion removes that run's records. Job data reset and job deletion remove persistent data, so preserve needed files before confirming either action.
+
+See [Execution behavior](./runtime-architecture.mdx) for ownership and recovery, and [Author a blueprint](./blueprint-standard.mdx) for the package format.

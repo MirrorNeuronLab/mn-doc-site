@@ -1,323 +1,49 @@
 ---
-title: "Make Blueprints Work With Docker And OpenShell"
-description: "Blueprints often fail for boring environmental reasons: a path exists on macOS but not inside Docker, a port looks busy because Docker pre-published it, or a service health…"
+title: "Prepare files and services for Docker and OpenShell"
+description: "Stage inputs, publish outputs, and configure service access across runner boundaries."
 ---
 
-# Make Blueprints Work With Docker And OpenShell
+Check which environment needs each file or endpoint. The application surface reads its own filesystem. The runtime prepares bundles on the owner machine. A Docker worker sees its image, mounts, and container network. OpenShell sees the files and network access allowed by its sandbox policy.
 
-Blueprints often fail for boring environmental reasons: a path exists on macOS but
-not inside Docker, a port looks busy because Docker pre-published it, or a service
-health check points at the wrong side of a network boundary. This guide explains
-the boundaries and the patterns that avoid those failures.
+## File inputs and output handoff
 
-Use it when a blueprint reads local files, opens ports, runs a web UI, calls a
-host service, or runs inside OpenShell.
+Keep static scripts, templates, and policies under `payloads/`. Declare user files or folders for staging and use a path the preparing runtime can read. Use a supported upload when the source file is on the client. In a remote catalog launch, paths are resolved on the runtime.
 
-## The Mental Model
-
-A blueprint launch can touch several different filesystems and networks:
-
-| Place | What Runs There | What It Can See |
-| --- | --- | --- |
-| Native OS | OtterDesk, `mn-api`, `mn`, validation before launch | Native files such as `~/docs`, native localhost ports |
-| Core Docker container | MirrorNeuron core, core-side validation, HostLocal workers in local installs | Submitted bundle under `/tmp/bundle_*`, payloads under `payloads/`, container localhost |
-| HostLocal workspace | A copied payload directory for one agent | Only files copied from the submitted payload `upload_path` |
-| OpenShell sandbox | Sandboxed worker command | Only uploaded sandbox files and explicitly allowed network/filesystem resources |
-
-The mistake to avoid: never assume a path or port that worked in native
-validation will work in the runtime worker.
-
-## File Inputs
-
-Static files that ship with a blueprint belong under `payloads/`. Runtime worker
-commands should read them through paths relative to the node workdir.
-
-User-selected native folders or files need staging. Do not pass a native path such
-as `~/Downloads/tax2025` directly to a Docker or OpenShell worker.
-Instead:
-
-1. Validate the native path before launch.
-2. Copy the selected files into the submitted payload.
-3. Rewrite the runtime config to point at the copied payload path.
-4. Make core-side validation accept the staged path.
-
-For folder inputs, use the blueprint support `local_inputs.folders` contract in
-`config/default.json`:
+Use `local_inputs.folders` to map an operator's configured folder to a staged path. The example limits staging to PDF and text files.
 
 ```json
 {
-  "tax_documents": {
-    "folder_path": ""
-  },
+  "documents": {"folder_path": ""},
   "local_inputs": {
     "folders": [
       {
-        "config_path": "tax_documents.folder_path",
-        "payload_path": "tax_workflow/mn_local_inputs/tax_documents",
-        "runtime_path": "mn_local_inputs/tax_documents",
-        "allowed_extensions": [".pdf", ".txt", ".json"],
-        "linked_config_paths": ["inputs.payload.document_folder"]
+        "config_path": "documents.folder_path",
+        "payload_path": "worker/mn_local_inputs/documents",
+        "runtime_path": "mn_local_inputs/documents",
+        "allowed_extensions": [".pdf", ".txt"]
       }
     ]
   }
 }
 ```
 
-`payload_path` is where launch preparation writes files in the submitted payload.
-It must be inside the payload tree that the node uploads. If the node uses
-`upload_path: "tax_workflow"` and its workdir is `/sandbox/job/tax_workflow`,
-then `payload_path` should start with `tax_workflow/`.
+The worker must receive the `worker/` payload tree and start from the corresponding working directory. Each worker needs its own accessible staged path. Validation can run during preparation and again against the staged bundle. A command validator reading `MN_BLUEPRINT_CONFIG_JSON` must handle the path it receives at each stage.
 
-`runtime_path` is what the worker reads after upload. With
-`workdir: "/sandbox/job/tax_workflow"`, the worker reads
-`mn_local_inputs/tax_documents`.
+For OpenShell, declare uploads and the sandbox working directory. Use `artifact_handoff.version: "mn.artifact_handoff/v1"` and declare output files. To copy them to a configured folder, also set `artifact_handoff.export_outputs: true`. The runtime verifies the handoff before publishing outputs. See [Artifact handoff](./runtime-architecture.mdx#why-artifacts-matter).
 
-Avoid hidden staging directories such as `.mn_local_inputs`. Some packaging,
-copy, archive, or inspection tools skip dot-prefixed paths. Prefer
-`mn_local_inputs`.
+## Ports and network access
 
-## HostLocal Upload Paths
+A loopback address refers to the environment that makes the connection. Check model endpoints, callbacks, and health probes from the worker or check environment. OpenShell policies must allow the hostnames and routes the workflow uses. Review those routes before passing credentials.
 
-HostLocal copies files from the submitted payload into an agent workspace:
+A reserved port helps the scheduler avoid conflicts. Configure Docker or the runner to publish the intended listener. An already published port may appear occupied on the host because Docker owns it. Use the reachable address and port in the readiness check.
 
-```json
-{
-  "runner_module": "MirrorNeuron.Runner.HostLocal",
-  "upload_path": "worker",
-  "upload_as": "worker",
-  "workdir": "/sandbox/job/worker",
-  "command": ["python3.11", "scripts/run_blueprint.py"]
-}
-```
+For a job UI, declare a long-running service, its port, and a passing check. Use the job's [UI relay](./api.mdx#job-ui-relay) for browser access to the allowed service ports.
 
-If a worker needs staged user files, the staged `payload_path` must be inside
-`worker/`:
+## Diagnose a runner or service
 
-```json
-{
-  "payload_path": "worker/mn_local_inputs/documents",
-  "runtime_path": "mn_local_inputs/documents"
-}
-```
+1. Run `mn blueprint doctor ./my-blueprint` from the parent of the reviewed package.
+2. Confirm the owner and runner, then check the staged paths, mounts, and working directory.
+3. Inspect `mn service show <service-name> --all` for unhealthy instances.
+4. Follow [run events and logs](./monitor.mdx#logs-events-and-results) to see whether preparation, launch, or output transfer failed.
 
-If several nodes need the same staged input and each uploads a different
-directory, either put the staged files under each node's upload path or change the
-manifest to use a shared upload root. Do not rely on another node's workspace.
-
-## Validators
-
-Input validation can run twice:
-
-- API or CLI preflight, where native paths may exist.
-- Core preflight, where only the submitted bundle and payloads exist.
-
-Command validators should read `MN_BLUEPRINT_CONFIG_JSON`. If launch preparation
-rewrites a native input to a staged runtime path, validators must understand both
-forms.
-
-Example validator resolver:
-
-```python
-from pathlib import Path
-
-
-def resolve_folder(config: dict, folder: str) -> Path:
-    native = Path(folder).expanduser()
-    if native.exists():
-        return native
-
-    for spec in (config.get("local_inputs") or {}).get("folders") or []:
-        if spec.get("runtime_path") != folder:
-            continue
-        payload_path = spec.get("payload_path")
-        if not payload_path:
-            continue
-        staged = Path("payloads") / payload_path
-        if staged.exists():
-            return staged
-    return native
-```
-
-Also watch blank initial inputs. Runtime messages can contain defaults such as
-`document_folder: ""`. Worker code should not let a blank runtime value override a
-valid staged config path.
-
-## Ports And Web UIs
-
-Docker-published ports look busy from the native host because Docker already owns
-the host listener. That is expected. A blueprint web UI is an explicit
-long-running service node, not a side process injected from configuration.
-Declare its command, port resource, service name, tags, and health check in the
-manifest:
-
-```json
-{
-  "node_id": "example_web_ui",
-  "type": "stream",
-  "config": {
-    "runner_module": "MirrorNeuron.Runner.HostLocal",
-    "command": ["python3.11", "example_web_ui.py"]
-  },
-  "resources": {
-    "ports": [{"label": "web_ui", "port": 61000, "protocol": "http"}]
-  },
-  "services": [
-    {
-      "name": "example-web-ui",
-      "port": 61000,
-      "tags": ["web_ui", "blueprint", "example", "json-render"],
-      "checks": [{"name": "http-ready", "type": "http", "path": "/healthz"}]
-    }
-  ]
-}
-```
-
-The blueprint is responsible for choosing a port that fits the deployment
-contract. The runtime owns lifecycle and health supervision; it does not infer
-or reserve a global dashboard port range from `config.web_ui`.
-
-## Localhost Means Different Things
-
-`localhost` always means "this process's own network namespace."
-
-| From | `localhost` Means | Use For Host Services |
-| --- | --- | --- |
-| Native OS | The macOS/Linux/WSL host | `localhost` |
-| Core Docker container | The core container | `host.docker.internal` on Docker Desktop, or a reachable host IP |
-| OpenShell sandbox | The sandbox | Usually a service DNS name, gateway address, or explicit host mapping |
-
-Examples:
-
-- A dashboard URL shown to a browser on the native OS can be
-  `http://localhost:61000`.
-- A worker inside Docker calling an Ollama server on the host often needs
-  `http://host.docker.internal:11434` or the LAN IP.
-- A service health check should use the address that is reachable from the
-  process running the check, not necessarily the public browser URL.
-
-## OpenShell Rules
-
-OpenShell should be treated as a stricter runtime than HostLocal.
-
-Put everything the sandbox must read under `payloads/`:
-
-```text
-my_blueprint/
-  manifest.json
-  payloads/
-    worker/
-      scripts/run.py
-      policy.json
-      requirements.txt
-```
-
-Reference payload-local files in the manifest:
-
-```json
-{
-  "runner_module": "MirrorNeuron.Sandbox.OpenShell",
-  "upload_path": "worker",
-  "sandbox_upload_path": "/sandbox/job",
-  "workdir": "/sandbox/job/worker",
-  "command": ["/usr/bin/python3", "scripts/run.py"]
-}
-```
-
-Do not pass native paths for policies, SSH keys, prompt files, model caches, or
-input data unless the OpenShell integration explicitly supports and validates that
-local path. Prefer copying those files into the payload.
-
-OpenShell network access is also explicit. If a worker needs a model provider,
-web API, local service, or dashboard callback, document the required hostname and
-test it from inside the sandbox.
-
-## Service Discovery And Health Checks
-
-If a blueprint starts a long-lived process, register it as a runtime service.
-Do not rely only on log messages or a local `*.json` side file.
-
-For blueprint-owned services:
-
-- Give the service a stable name.
-- Add tags such as `blueprint`, `<blueprint_id>`, and a capability tag.
-- Put the public URL and run identity in `meta`.
-- Add a health check that becomes passing only after the service is reachable.
-- Let the service lifecycle follow the job or agent lifecycle.
-
-Verify service discovery:
-
-```bash
-mn service show <blueprint-web-ui-service-name> --tag <blueprint_id>
-```
-
-Expected output:
-
-```text
-<blueprint-web-ui-service-name>
-```
-
-For API clients, use:
-
-```bash
-curl http://127.0.0.1:54001/api/v1/services/<blueprint-web-ui-service-name>/resolution
-```
-
-## Debug Checklist
-
-When a blueprint works in validation but fails at runtime:
-
-- Check whether the worker received the same config as validation.
-- Check whether any blank `initial_inputs` value overwrote a nonblank config
-  value.
-- Check whether the needed file is inside the submitted payload path.
-- Check whether the file is inside the node's `upload_path`.
-- Check whether the path is visible from the node workdir.
-- Avoid dot-prefixed staging directories.
-- Remember core validation runs inside Docker for local Compose installs.
-
-When a port fails:
-
-- Check whether Docker is intentionally publishing the range.
-- Check the manifest-declared port resource and active runtime services.
-- Separate bind host, health-check address, and public browser URL.
-
-Useful commands:
-
-```bash
-mn blueprint validate /path/to/bundle
-mn blueprint run /path/to/bundle
-mn service list --all
-mn service show <blueprint-web-ui-service-name> --tag <blueprint_id>
-```
-
-For a local development runtime, inspect the submitted bundle from the job
-details. The `manifest_ref.cache_path` points at the bundle cache inside the core
-container:
-
-```bash
-docker exec mirror-neuron-core find /tmp/mirror_neuron/bundle_cache -maxdepth 4 -type f
-```
-
-## Design Checklist
-
-Before declaring a blueprint ready:
-
-- Native files are either packaged under `payloads/` or declared through
-  `local_inputs`.
-- Runtime config paths are relative to the worker workdir.
-- Validators work both before staging and after staging.
-- Worker code reads `MN_BLUEPRINT_CONFIG_JSON`.
-- Blank runtime inputs do not erase staged config paths.
-- Long-lived web UIs are runtime-registered services.
-- Web UI ports and health checks are explicit manifest declarations.
-- OpenShell inputs, policies, and dependencies are payload-local.
-- Host service URLs are tested from the runtime namespace that will call them.
-
-## Related Pages
-
-- [Blueprints and Skills](blueprints-and-skills.mdx)
-- [Job Bundle Format](bundle.mdx)
-- [Services and Health Checks](services-and-health-checks.mdx)
-- [Resources and Devices](resources-and-devices.mdx)
-- [Security Model](security.mdx)
-- [Troubleshooting](troubleshooting.mdx)
+See [Execution and data access](./security.mdx) before changing mounts, network access, or sandbox policy.

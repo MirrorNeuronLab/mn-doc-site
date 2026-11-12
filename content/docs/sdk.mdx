@@ -1,30 +1,48 @@
 ---
 title: "Use the Python SDK"
-description: "Inspect runtime jobs and load, configure, and compile blueprint packages."
+description: "Read jobs from Python, launch a local bundle, or compile a blueprint for validation."
 ---
 
-Use Python 3.11 or newer in an environment with a compatible `mirrorneuron-python-sdk` installation. For HTTP integrations, use the [HTTP API](api.mdx); `mn_sdk.Client` talks to Core over gRPC.
+Use Python 3.12 or newer and an SDK release compatible with your runtime. Use the installed environment if it already provides the SDK. For a separate Python environment, install `mirrorneuron-python-sdk[client]` from your MirrorNeuron package source. See [HTTP API](./api.mdx) for an HTTP integration.
 
 ## Inspect jobs and runs
 
-With the runtime started, run this Python code:
+Run this from the environment of a [connected installation](./installation.mdx). `RuntimeResources` uses its saved connection. Keep the connection file and credentials private.
 
 ```python
-from mn_sdk import Client
+from mn_sdk.runtime_resources import RuntimeResources
 
-client = Client(target="localhost:55051")
-print(client.list_jobs())
-print(client.list_runs())
+runtime = RuntimeResources()
+jobs = runtime.request("GET", "/jobs")
+for job in jobs["items"]:
+    print(job)
 ```
 
-The client defaults can be configured through `MN_GRPC_TARGET`, `MN_GRPC_TIMEOUT_SECONDS`, and `MN_GRPC_AUTH_TOKEN`. Keep tokens out of source code and logs.
+Pass the returned `next_page_token` as `page_token` to read the next page. For a known run, use `runtime.request("GET", "/runs/" + resource_id(run_id))` with `resource_id` imported from `mn_sdk.runtime_resources`.
+
+## Launch a local bundle from Python
+
+On the runtime host, with direct Core connection settings available to the SDK, run this from the parent of a reviewed bundle directory. Launch prepares a job and starts execution. Use sample inputs and review worker actions first.
+
+```python
+from mn_sdk.public import MirrorNeuron
+
+with MirrorNeuron() as runtime:
+    run = runtime.launch("./my-blueprint")
+    print(run.job_id, run.run_id)
+    print(run.status())
+```
+
+Use `run.events()` to follow events or `run.wait(timeout=60)` to wait for a terminal state. A wait timeout leaves work running. Retain the IDs to look up the execution. Use `start(job_id)` for a later run of the saved job. Async applications can use `AsyncMirrorNeuron`.
+
+Direct SDK clients read `MN_GRPC_TARGET`, `MN_GRPC_TIMEOUT_SECONDS`, and `MN_GRPC_AUTH_TOKEN` or the corresponding runtime configuration. If you use `mn_sdk.Client` directly, `list_runs(job_id)` takes a job ID and returns a JSON string. See [Configuration](./env_variables.mdx).
 
 ## Load and compile a blueprint
 
-Run from the directory containing a reviewed package, replacing `./my-blueprint` with its path:
+Replace `./my-blueprint` with a reviewed folder or ZIP. Compilation can import declared StepSpec code.
 
 ```python
-from mn_sdk.blueprints import open_blueprint, resolve_config, compile_blueprint
+from mn_sdk.blueprints import compile_blueprint, open_blueprint, resolve_config
 
 with open_blueprint("./my-blueprint") as package:
     configuration = resolve_config(package, {})
@@ -32,33 +50,10 @@ with open_blueprint("./my-blueprint") as package:
     print(package.manifest["id"], compiled.fingerprint)
 ```
 
-`open_blueprint` accepts a folder or ZIP. Configuration combines declared defaults, `config/overwrite.json`, and invocation overrides in that order after SDK feature projections. Supply overrides as the second argument to `resolve_config`.
-
-Compilation validates and builds a runtime descriptor; it does not start a run. Compilation can import declared StepSpec code in subprocesses, so review the package first. For a complete launch and resource-preparation path, use [Quickstart](quickstart.mdx).
+The compiler returns a descriptor and fingerprint. To prepare resources and execute the compiled workflow, use the launch path above or [Run your first blueprint](./quickstart.mdx).
 
 ## Declare optional capabilities
 
-Put SDK component distributions in the package's `dependencies.json`:
+Declare SDK components under `packages` in `dependencies.json`. Install only the capabilities your workers use. For example, add `mn-python-sdk-mcp` for an MCP integration or `mn-python-sdk-rag` with the `milvus` extra when your blueprint uses Milvus. Select versions compatible with your SDK and runtime. See [Dependency versions](./blueprint-standard.mdx#dependency-versions).
 
-```json
-{
-  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/dependencies.schema.json",
-  "packages": [
-    {"type": "pip", "source": "gar", "name": "mn-python-sdk-mcp", "version": ">=1.3,<2.0"},
-    {"type": "pip", "source": "gar", "name": "mn-python-sdk-rag", "version": ">=1.3,<2.0", "extras": ["milvus"]}
-  ]
-}
-```
-
-Choose constraints compatible with your released SDK. Exact versions and supported ranges are described in [Dependency versions](blueprint-standard.mdx#dependency-versions). Milvus is opt-in; installing a provider alone does not enable it for every blueprint.
-
-Inside a prepared worker:
-
-```python
-from mn_sdk.components import ComponentRegistry
-
-registry = ComponentRegistry.from_environment()
-call_tool = registry.service("mcp", "call_tool")
-```
-
-Lookup is lazy and does not install packages. Missing or undeclared capabilities must be resolved in the package before submission.
+Within a prepared worker, `ComponentRegistry.from_environment()` reads the component declarations. Resolve an MCP tool service with `registry.service("mcp", "call_tool")` when the package declares that capability. Lookup uses prepared dependencies.

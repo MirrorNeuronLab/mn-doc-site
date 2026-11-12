@@ -1,77 +1,26 @@
 ---
-title: "MirrorNeuron Component Guide"
-description: "This is the canonical repository map for contributors and maintainers. Use it to identify the component that owns a behavior, select the smallest validation command, and decide…"
+title: "Find the component that owns a behavior"
+description: "Locate the source and reference page for installation, execution, and integrations."
 ---
 
-# MirrorNeuron Component Guide
-
-This is the canonical repository map for contributors and maintainers. Use it to identify the component that owns a behavior, select the smallest validation command, and decide which detailed documentation page must change with the code.
-
-## Documentation ownership
-
-`mn-docs` owns detailed cross-component documentation. Folder READMEs should remain focused on the component's purpose, a safe first command, and component-local validation. Blueprint folders are the exception: they must be self-contained because they are often reviewed and run outside the central documentation.
+Use this map when you need to trace a support issue or make a source contribution. For the request path, see [Execution behavior](./runtime-architecture.mdx).
 
 ## Workspace map
 
-| Component | Owns | Primary documentation | Minimum validation |
-| --- | --- | --- | --- |
-| `MirrorNeuron` | Elixir/OTP runtime, scheduling, persistence, cluster coordination, gRPC services, and execution leases. | [Runtime Architecture](runtime-architecture.mdx), [Reliability Guide](reliability.mdx) | `cd MirrorNeuron && mix test` |
-| `mn-deploy` | Installer, local service scripts, Docker Compose templates, and release support. | [Installation](installation.mdx) | `cd mn-deploy && ./install.sh --help` |
-| `mn-cli` | `mn` command surface, local runtime orchestration, model/blueprint/job/node operations. | [CLI Reference](cli.mdx) | `cd mn-cli && python3 -m pytest -q` |
-| `mn-api` | FastAPI REST gateway, API auth/configuration, OpenAPI surface, and runtime proxy behavior. | [API Reference](api.mdx) | `cd mn-api && python3 -m pytest -q` |
-| `mn-python-sdk` | gRPC client, configuration resolution, bundle helpers, and blueprint catalog source resolution. | [Python SDK](sdk.mdx), [Environment Variables](env_variables.mdx) | `cd mn-python-sdk && python3 -m pytest -q` |
-| `mn-web-ui` | Browser UI for jobs, runtime state, and blueprint runs. | [Monitor Guide](monitor.mdx) | `cd mn-web-ui && npm run lint && npm test -- --run` |
-| `mn-agents` | Shared agent templates and contracts used by blueprints. | [Blueprints and Skills](blueprints-and-skills.mdx) | Component test suite |
-| `mn-skills` | Reusable Python skill packages. | [Blueprints and Skills](blueprints-and-skills.mdx) | Package-specific tests |
-| `mn-system-tests` | Cross-component smoke, integration, end-to-end, security, and benchmark checks. | [Testing](testing.mdx) | `cd mn-system-tests && python3 test_all.py --fast` |
-| `Membrane` | Context engine, context-memory SDK, and context-compression tooling. | [Context Memory](context-memory.mdx) | Component test suite |
-| `otterdesk-blueprints` | Self-contained user-facing workflow blueprints. | [Examples](examples.mdx), [Blueprint Standard](blueprint-standard.mdx) | Blueprint validation and repository tests |
-| `otterdesk-desktop-app` | Desktop application for launching and monitoring blueprints. | [Deployments](deployments.mdx) | `cd otterdesk-desktop-app && npm run doctor` |
+| Component | What it owns | User guide |
+| --- | --- | --- |
+| `mn-deploy` | Installation roles, component pins, service lifecycle configuration | [Install MirrorNeuron](./installation.mdx) |
+| `MirrorNeuron` | Core admission, job ownership, scheduling, execution, and Redis state | [Reliability and recovery](./reliability.mdx) |
+| `mn-python-sdk/packages/runtime` | Native runtime host lifecycle, catalogs, preparation, and cleanup | [Execution behavior](./runtime-architecture.mdx) |
+| `mn-cli` | Terminal commands and output | [CLI reference](./cli.mdx) |
+| `mn-api` | HTTP, API credentials, streams, and the MCP surface | [HTTP API](./api.mdx) |
+| `mn-python-sdk` | Client connections, package schemas, compilation, and worker libraries | [Python SDK](./sdk.mdx) · [Author a blueprint](./blueprint-standard.mdx) |
+| `mn-web-ui` | Browser UI for jobs, runs, and models | [Monitor and control runs](./monitor.mdx) |
+| `mn-agents` and `mn-skills` | Shared worker and skill packages | [Use workers and skills](./blueprints-and-skills.mdx) |
+| `Membrane` | Context, memory, and evidence retrieval | [Keep model context bounded](./context-memory.mdx) |
+| `Synapse` | Synapsy blueprint authoring and verification | [Author a blueprint](./blueprint-standard.mdx) |
+| `mn-system-tests` | Cross-component validation and benchmarks | [Validate a workflow or integration](./testing.mdx) |
 
-## Change-to-documentation map
+## Trace an issue
 
-| If you change… | Update at minimum |
-| --- | --- |
-| A CLI command, option, output contract, or command group | `cli.md`, relevant tutorial/how-to, tests. |
-| An API route, request/response field, auth behavior, or default port | `api.md`, `env_variables.md`, route tests, and OpenAPI validation. |
-| A runtime lifecycle, scheduler, lease, retry, recovery, or persistence behavior | `runtime-architecture.md`, `reliability.md`, troubleshooting, Core tests. |
-| A public configuration key | `env_variables.md`, configuration schema/docs, and component tests. |
-| A blueprint input/output, runner, service, model, device, or human-control boundary | Blueprint README/SPEC/manifest, `examples.md`, `blueprint-standard.md`, and validation tests. |
-| A listener, secret path, external connector, sandbox policy, or cluster trust behavior | `security.md`, relevant operational page, configuration reference, and tests. |
-| Installer or service startup behavior | `installation.md`, `troubleshooting.md`, `mn-doc-site` installation page, and installer tests. |
-
-## Safe contributor loop
-
-1. Start in the component that owns the behavior, not in a documentation file.
-2. Read the component README, local `AGENTS.md`, focused tests, and the canonical page listed above.
-3. Make the smallest behavior change that addresses the intended contract.
-4. Run the component's focused validation before broader checks.
-5. Update `mn-docs` first for detailed facts, then `mn-doc-site/content/docs` for the concise reader-facing path when the behavior is public.
-6. Run the documentation-site type check and record evidence in the pull request.
-
-## Local runtime development
-
-Use the deployment component to install an editable workspace runtime:
-
-```bash
-cd mn-deploy
-./install.sh --mode local
-```
-
-Then inspect the services before testing a blueprint:
-
-```bash
-mn runtime status
-mn runtime status
-mn node list
-```
-
-Use [Quickstart](quickstart.mdx) for the model-backed first workflow path. Do not substitute a deleted blueprint ID or assume a checked-in blueprint has no model, service, or device requirements.
-
-## Related pages
-
-- [Documentation Standard](documentation-style.mdx)
-- [Testing](testing.mdx)
-- [Contributing](contributing.mdx)
-- [Runtime Architecture](runtime-architecture.mdx)
-- [Security Model](security.mdx)
+Capture the command or endpoint, component versions, public IDs, and sanitized error. Use the component's README and focused tests to verify the behavior. If a public contract changes, update the affected procedure and reference in the user guide. See [Contribute to MirrorNeuron](./contributing.mdx).

@@ -1,213 +1,72 @@
 ---
-title: "Federation Guide"
-description: "This guide describes how MirrorNeuron connects independent runtime Cores, selects one owner for each job, and preserves owner-local operation during a network partition."
+title: "Connect runtime nodes"
+description: "Join runtimes over a trusted network, verify ownership, and manage maintenance."
 ---
 
-# Federation Guide
-
-This guide describes how MirrorNeuron connects independent runtime Cores,
-selects one owner for each job, and preserves owner-local operation during a
-network partition.
-
-## Architecture
-
-Every machine runs a complete Core with its own writable Redis, API, runtime
-services, and LiteLLM gateway. Federation uses authenticated gRPC peer calls;
-it does not use a shared Redis, shared BEAM membership, Horde supervision, or a
-shared Erlang cookie.
-
-A job has exactly one `owner_node`. The owner stores its authoritative state
-and runs all agents, leases, schedules, and execution controls for that job.
-Explicit ownership takes priority; otherwise resource and model selection
-chooses one eligible owner before job creation. Federated peers keep only
-summary projections of remote jobs.
+A CLI or API surface connects to an entry runtime. That runtime can federate with peers. Each peer has its own writable Redis store and can own jobs. One job's workers and execution state stay on its owner.
 
 ## Network requirements
 
-Permit these endpoints only between trusted LAN or VPN peers:
+Allow Core gRPC traffic between trusted clients and peers. The default published port is `55051`. If you use peer model gateway routing, restrict the gateway's port, normally `4000`, to the trusted network. Configure optional shared file transport separately. Keep Redis and internal distribution listeners private.
 
-| Port | Purpose |
-| --- | --- |
-| `55051` | Core gRPC federation control and forwarded owner requests. |
-| `4000` | Private LiteLLM gateway-to-gateway model routing. |
-| Syncthing ports | Optional blob transport when `cluster.storage` is enabled. |
-
-Redis, Redis Sentinel, EPMD, and BEAM distribution ports do not need to be
-reachable between hosts. Each Redis stays local to its Core. LiteLLM port
-`4000` is published for authenticated peer gateways, so restrict it with the
-host firewall rather than exposing it to an untrusted network.
-
-Each Core advertises a federation-reachable gRPC host and port. Use `--host`
-when automatic address selection would choose the wrong interface:
+The published Core endpoint defaults to loopback. Set an appropriate `MN_GRPC_BIND_HOST` and advertise a LAN or VPN address peers can reach. Check the firewall before widening the bind. Run the start command from the installation home.
 
 ```bash
-mn runtime start --host <this-node-lan-or-vpn-address>
+bin/mn-runtime start --host <node-address>
 ```
+
+Replace `<node-address>` with that machine's reachable address. On a combined installation you can use `mn runtime start --host <node-address>`.
 
 ## Start and join two nodes
 
-There is no leader/worker start distinction. Start the same full runtime on
-both machines:
+[Install and start](./installation.mdx) a combined or dedicated runtime on each machine. Obtain each runtime's reachable host and private control token from its operator. In the surface shell, set `ENTRY_HOST`, `PEER_HOST`, `ENTRY_TOKEN`, and `PEER_TOKEN` privately.
 
 ```bash
-mn runtime start
+mn node add "$ENTRY_HOST" --token "$ENTRY_TOKEN"
+mn node add "$PEER_HOST" --token "$PEER_TOKEN"
+mn node list
 ```
 
-Successful startup prints:
-
-- the advertised host and gRPC endpoint;
-- the node identity;
-- the active federation join token; and
-- the exact `mn node add` command for another peer.
-
-On one already-running node, execute the add command printed by the other:
-
-```bash
-mn node add <peer-host> --token <join-token> --grpc-port 55051
-```
-
-The add operation authenticates the token, verifies distinct writable store
-identities, registers both peers, clears stale legacy links, and waits for
-reciprocal federation readiness. It returns success only after both sides are
-online and job-capable. Repeating the same identity/endpoint join is
-idempotent; identity conflicts fail without replacing the existing peer.
-
-The join token is a credential. Keep startup output private and rotate it if
-exposed:
-
-```bash
-mn node refresh-token
-```
-
-The former `mn runtime start --worker` option is removed. Every runtime can own
-jobs and resume its local work independently.
+If your combined install already uses the intended entry node, begin with the peer command. Add `--grpc-port` for a non-default port. The entry runtime checks for a distinct coordination-store identity and waits for reciprocal readiness.
 
 ## Verify federation
 
-From either machine:
-
-```bash
-mn node list
-mn node show <peer-node>
-mn runtime status
-mn resource show
-```
-
-Expected signs include:
-
-- both Cores report different coordination-store identities;
-- the peer has `connection_mode=federated`, is online, and is job-owner
-  eligible;
-- the peer is absent from BEAM `connected_nodes`; and
-- each node reports its own local scheduler eligibility and resources.
-
-`POST /api/v1/nodes` uses the same SDK orchestration as the CLI. It returns
-`201` with `Location` only after reciprocal readiness. Authentication,
-readiness, or rollback failures return a sanitized error instead of premature
-success.
+Use `mn node show <peer-node>` with the exact name from `mn node list`. Check that the peer is online, marked federated, and eligible to own jobs. Use `mn resource show` for capacity on each node. For local service diagnostics, check `bin/mn-runtime status` from each runtime home.
 
 ## Job ownership and routing
 
-Create a job for a chosen Core with the appropriate CLI or API `owner_node`
-field/`--node` option. If ownership is omitted, the resource/model selector
-chooses one eligible Core before creation. The chosen owner schedules every
-agent locally; federation never splits one job's agents across peers.
+Use `mn blueprint run <blueprint-id> --node <node>` to choose a specific owner. If you omit the node, placement selects an eligible owner based on requirements and available models. The entry runtime forwards operations to that owner. Its cached remote summaries can show `owner_available`, `projection_stale`, and `last_synced_at`.
 
-Requests received by another peer are forwarded to the owner with
-authenticated loop-prevention metadata. The owner validates ownership before
-applying the operation. The receiving peer caches only returned job/run
-summaries with:
+If connectivity breaks, existing jobs can continue on their owner. Reach that owner directly for current state if possible. Cross-peer controls, streams, and files can return `503 MN_NODE_UNAVAILABLE`. The runtime can retain certain owner-directed job archive or delete requests as pending. Verify the owner's acknowledgement before treating cleanup as complete. See [Federation behavior](./cluster_architecture.mdx) and [Partition and restart behavior](./reliability.mdx#partition-and-restart-behavior).
 
-- `owner_available`;
-- `projection_level=summary`;
-- `projection_stale`; and
-- `last_synced_at`.
-
-## Partition behavior
-
-If federation connectivity is lost:
-
-- existing jobs continue on their owner Core;
-- direct API/CLI access to that owner remains functional;
-- peers can return previously cached summary projections, marked stale; and
-- cross-peer mutations, streams, logs, artifacts, and uncached reads return
-  `503 MN_NODE_UNAVAILABLE` and are not queued.
-
-After reconnection, reciprocal status and summary projections refresh. A Core
-that was federation-unlocked remains job-capable after restarting while
-disconnected because that state is persisted locally.
-
-## Model routing
-
-All agents call their job owner's LiteLLM gateway, even for local models:
-
-```text
-local model:  agent -> owner LiteLLM -> owner DMR
-remote model: agent -> owner LiteLLM -> peer LiteLLM -> peer DMR
-```
-
-An agent must never use a direct Docker Model Runner `:12434` endpoint. Local
-installations win for duplicate model IDs. A remote or alternate model is used
-only through an explicitly declared LiteLLM fallback.
+Managed inference for an admitted run uses its owner's reserved capacity. Hosted provider traffic follows the configured gateway route. See [Model residency](./model-runtime.mdx#run-admission-and-model-residency).
 
 ## Shared blobs are optional
 
-Syncthing can replicate submissions, executable bundles, intermediate
-artifacts, and outputs between local shared-storage roots. This is blob
-transport only; it does not share Redis, job state, leases, or scheduling.
+Syncthing can replicate submissions and output files. Each owner continues to use its own Redis, scheduler, and leases. Derived environments and checkpoints stay local. Use `MN_SYNCTHING_REQUIRED=1` if your setup should fail startup or join when the storage sidecar cannot be prepared.
 
-Set `MN_SYNCTHING_REQUIRED=1` when failure to establish the optional storage
-sidecar should stop startup. Derived HostLocal environments and checkpoints
-remain node-local under `$MN_HOME/cache` and `$MN_HOME/checkpoints`.
-
-The Syncthing API key is sensitive. Do not paste it or the federation join
-token into tickets, test reports, or shared command output.
-
-## Node operations
-
-Maintenance and drain controls change whether a Core can be selected as the
-owner of new jobs. They do not migrate individual agents from an existing job
-to another peer; the job remains single-home.
+## Drain a node for maintenance
 
 ```bash
-mn node maintenance <node> --enable --reason "host maintenance"
 mn node drain <node> --reason "host maintenance" --wait
-mn node undrain <node> --reason "host ready" --mark-eligible
+mn node show <node>
 ```
 
-Use an independent owner-local job on another eligible Core when capacity is
-needed during maintenance.
+Check the drain and outstanding work before stopping the runtime or removing membership. When the host is ready, use `mn node undrain <node> --reason "host ready" --mark-eligible`. Removing a node with `mn node remove <node> --yes` changes membership and leaves its installed services and files on that machine. Removing the entry node also clears the surface's saved connection.
 
-## Troubleshooting
+## Moving an idle job
 
-### Join returns `MN_NODE_UNAVAILABLE`
+Wait for terminal runs and resource cleanup, pause its schedules, and check that its data is portable. Keep a backup. The destination must be reachable and compatible.
 
-Confirm the peer's advertised gRPC address is reachable and that both Cores
-are healthy. The join does not return success after only one-sided
-registration; fix connectivity and repeat the same idempotent command.
+```bash
+mn job relocate <job-id> --node <destination-node>
+mn job show <job-id>
+```
 
-### Store identity conflict
+Verify the new owner and transfer status before starting work. A move copies the job and retained evidence without replaying prior runs. If the move is interrupted, retry the same transfer. Before ownership commits, `mn job relocate <job-id> --node <destination-node> --abort` can restore availability at the source. After commit, retry the move to finish activation and cleanup.
 
-Both Cores are using the same Redis identity. Stop the joining node, configure
-a distinct writable Redis, and retry. Legacy shared-store deployments must
-drain jobs and rejoin; there is no implicit data migration.
+## Troubleshoot a join
 
-### Remote job summaries are stale
-
-The owner is unreachable. Read the summary as cached evidence only. Connect
-directly to the owner for local controls or restore federation connectivity;
-mutations are intentionally not queued elsewhere.
-
-### Remote model route fails
-
-Verify port `4000` between trusted peers and inspect both LiteLLM gateway
-health checks. Do not bypass the gateways with a direct DMR URL.
-
-## Related docs
-
-- [Federation Architecture](cluster_architecture.mdx)
-- [Reliability Guide](reliability.mdx)
-- [Resources and Devices](resources-and-devices.mdx)
-- [CLI Reference](cli.mdx)
-- [Model Runtime](model-runtime.mdx)
-- [Troubleshooting](troubleshooting.mdx)
+- For `MN_NODE_UNAVAILABLE`, check each runtime's advertised address, listener, and service health. Repeat the same join after fixing reachability.
+- For a store identity conflict, check each Core's writable Redis configuration. Give the joining Core a distinct store before retrying.
+- For stale summaries, check whether the job's owner is reachable. See [Troubleshooting](./troubleshooting.mdx).

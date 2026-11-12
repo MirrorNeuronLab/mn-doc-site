@@ -1,32 +1,25 @@
 ---
 title: "Configure and diagnose models"
-description: "Prepare a model, register a provider, and verify its capabilities before launching."
+description: "Install the model a blueprint needs or connect an OpenAI-compatible provider."
 ---
 
-Run these commands with the CLI installed and the runtime started. Choose models from your blueprint's requirements and the available catalog rather than assuming every blueprint needs the same model.
+Review the blueprint's model requirements first. A workflow can use a managed local model, an OpenAI-compatible provider, or no model at all. Run model commands from a CLI attached to your runtime.
 
 ## Find and prepare a model
 
 ```bash
-mn model list
 mn model list --available
 mn model add <model-id>
 mn model doctor <model-id>
 ```
 
-Replace `<model-id>` with the required catalog ID or reviewed Docker Model Runner reference. Adding a model can download large artifacts and prepare gateway routes. Resolve hardware failures before running a blueprint. Use `--local` to require the submitting machine or `--node <node>` to choose an owner explicitly.
+Replace `<model-id>` with the required catalog ID or a reviewed Docker Model Runner reference. The catalog can also contain NVIDIA Docker models. Adding a local model can download weights and prepare the managed LiteLLM route. Use `--node <node>` to select a runtime node, or `--local` to use the entry runtime. Fix hardware or backend errors before launching.
 
-To give one model priority over the hardware-selected built-in defaults:
-
-```bash
-mn model add <model-id> --default
-```
-
-Removing that selected registration restores automatic default selection. Model choice does not guarantee that its outputs suit the blueprint's task.
+Use `mn model add --default` to prepare the first compatible configured default. To give one reviewed reference priority, use `mn model add <model-id> --default`. The priority persists until changed or removed. Use `mn model show` to inspect the default and fallbacks.
 
 ## Register an OpenAI-compatible provider
 
-Save this shape as `provider-models.json` in your working directory. Replace the example endpoint and model names with values supplied by your provider:
+Save a definition like this as `provider-models.json` **on the entry runtime**. Replace the endpoint and model values with the ones your provider supports.
 
 ```json
 {
@@ -48,43 +41,38 @@ Save this shape as `provider-models.json` in your working directory. Replace the
 }
 ```
 
-Set `MODEL_PROVIDER_API_KEY` securely in your environment before registration. Review the endpoint's data handling and cost: prompts and other model inputs can leave your machine.
+Set the referenced `MODEL_PROVIDER_API_KEY` in the native runtime service's environment. Keep the value out of the definition. Requests can send prompts and other inputs to that provider and incur charges.
+
+Register the provider from the attached CLI. Use the file's absolute path on the runtime.
 
 ```bash
-mn model add --file ./provider-models.json
+mn model add --file /path/to/provider-models.json
 mn model show my-provider-model
 mn model doctor my-provider-model
 ```
 
-Use `--default` only with a file that declares exactly one model. The command validates the full file and referenced environment variables before changing the registry or gateway. Later, `mn model update <model-id>` reloads the stored source definition and synchronizes the route.
+The runtime checks the file and credentials before changing the registry. Use `mn model update <model-id>` to reload the saved provider file. A file passed with `--default` must define exactly one model.
 
 ## Verify model capabilities
 
+Wait for the model and gateway to become ready, then probe the capabilities the blueprint needs. Probes send live model requests.
+
 ```bash
-mn model probe <model-id>
 mn model probe <model-id> --capabilities image,json-schema,stream
 ```
 
-Probes send live inference requests and may incur provider costs. They test the managed LiteLLM route and store the effective capability matrix in `$MN_HOME/models/catalog.json`. For a model installed on the current node, probes also compare direct DMR behavior. Remote-owner and provider routes are tested through the gateway only.
-
-A verified `false` means a capability is unsupported; it is not a probe failure. Unknown results, endpoint errors, or direct/gateway mismatches fail the command. Use `--json` for automation.
+The probe writes the observed matrix to the runtime's `$MN_HOME/models/catalog.json`. A verified `false` means the feature is unsupported. Unknown results or request failures need investigation. An entry-node Docker Model Runner model also gets a direct check for parity with the gateway. Provider and remote routes are checked through LiteLLM.
 
 ## Configure the blueprint
 
-Declare models in the appropriate execution and `mn.llm` documents described in [Author a blueprint](blueprint-standard.mdx). Use the registered logical model ID in blueprint configuration. Workers call the owner's managed LiteLLM gateway; direct DMR endpoints are not the worker interface.
+Set the registered model ID in the blueprint's model configuration. See [Author a blueprint](./blueprint-standard.mdx#extensions) for the `mn.llm` extension. From the parent of a reviewed local package, run `mn blueprint doctor ./my-blueprint` and resolve any route or capability errors.
 
-```bash
-mn blueprint doctor ./my-blueprint
-```
+## Run admission and model residency
 
-Replace the path with your reviewed package and fix reported requirements before launching.
+A run uses its job owner's reservation for managed inference, embeddings, and local fallback. A model listed on another node is only a catalog or routing observation. For a run that needs that model, choose a compatible owner before creating the job. Hosted providers remain accessible through configured gateway routes.
+
+Pausing can keep the managed model resident. After the final run reference closes and its requests drain, the runtime unloads the weights from memory and retains installed artifacts. Pending cleanup can hold capacity. See [Resources and devices](./resources-and-devices.mdx).
 
 ## Remove a model
 
-> Removal changes registered routes and can affect blueprints that depend on the model. Check active work and retain the provider definition before proceeding.
-
-```bash
-mn model remove <model-id> --yes
-```
-
-Provider removal deletes the registration and routes, not your source JSON. Re-add from that file when needed. For DMR resources, review the removal command's options and resource ownership before deleting model data.
+Preview with `mn model remove <model-id> --dry-run`. Check for dependent jobs and retain the provider file or model artifacts you need. Confirm removal with `mn model remove <model-id> --yes`. Use `--keep-artifact` when you want to keep an installed artifact while removing its registration.

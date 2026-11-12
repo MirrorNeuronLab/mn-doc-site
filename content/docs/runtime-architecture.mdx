@@ -1,32 +1,36 @@
 ---
 title: "Execution behavior"
-description: "Understand the execution boundaries that affect your application."
+description: "Understand where a job runs, how work is admitted, and when outputs are ready."
 ---
 
-## Where work runs
+## Application surface and runtime nodes
 
-Each job has one owner runtime node. All of its workers run there. Federation lets independent jobs use different owners, but it does not spread one job's workers across peers or migrate an active job when its owner is unavailable.
+The CLI and API surface connects to a runtime over authenticated gRPC. The entry runtime accepts requests and forwards them when a peer owns the job. The owner prepares the package, checks capacity, and uses its Redis state to coordinate the run. Workers run through the declared HostLocal, Docker, or OpenShell runner.
 
-Inspect ownership and execution with:
-
-```bash
-mn node list
-mn job show <job-id>
-mn run show <run-id>
+```text
+CLI or Web UI → entry runtime → job owner → runner → worker
+                                      ↓
+                             Redis state and run files
 ```
 
-## Choose and review the runner
+The Web UI reaches the runtime through the API. For placement, health checks, and scheduling, see [Runtime orchestration features](./nomad-inspired-runtime.mdx). A CLI or API process can disconnect while the owner continues preparing or executing work. Reattach using the returned operation or run ID. See [Install MirrorNeuron](./installation.mdx) and [Connect runtime nodes](./cluster.mdx).
 
-HostLocal uses host permissions. DockerWorker and DockerCompose use prepared container resources. OpenShell uses sandbox policies. Review mounts, environment variables, network access, and image or payload code regardless of the runner. See [Security](security.mdx).
+## Admission and supervision
 
-## Waiting, retries, and deadlines
+The owner reserves capacity before executing workers. Queued starts have durable IDs and wait for an eligible reservation. Once running, workflow dependencies and the step ledger determine when a worker may handle a delivery and when its output is committed.
 
-Steps wait for their declared dependencies and trigger rules. A skipped or failed predecessor can change whether downstream work runs. Retries can repeat external actions; make side-effecting workers idempotent where required.
+Preparation of models, dependencies, and services has separate deadlines from execution. Core can inspect a step when it reaches its inactivity interval. Useful progress or a bounded external wait can justify continuing the same attempt. Explicit operation and runner timeouts still apply. When a run is quiet, check events, preparation status, and human requests before assuming it has failed.
 
-DockerWorker buffers command output rather than streaming workflow beacons. Its task deadline remains authoritative; node-level beacon timeouts are ignored. An explicit workflow `control.beacon_timeout_ms` still applies when a separate producer supplies beacons. Quiet logs alone do not prove a stalled run.
+## Workflow action allowances
 
-Bounded child workflows hold their parent step until completion and deliver mapped results to downstream work. They execute within the parent run and are distinct from scheduled independent runs.
+Use `execution.json` `policies.workflow_budgets` to cap named workflow actions. Compilation resolves declared configuration values into bounded integer limits. The owner records grants and restores the allowance on a verified checkpoint retry. An uncertain action can still count against the limit.
 
-## Inspect outcomes
+Use [Run resource budgets](./resources-and-devices.mdx#run-resource-budgets) for CPU, memory, disk, and GPU capacity. Use [Reliability and recovery](./reliability.mdx) for replay and idempotency.
 
-Use [Monitor](monitor.mdx) to follow a run, download outputs, or cancel unfinished work. Completion is an execution outcome; review artifacts and warnings before using domain results. See [Reliability](reliability.mdx) for recovery limits and [Author a blueprint](blueprint-standard.mdx) for package fields.
+## Why artifacts matter
+
+Publish large files as artifacts and send their references through workflow messages. Keep the run ID, output path, and required source evidence together so another step or application can verify the result.
+
+An OpenShell handoff validates its producer and the declared paths, sizes, and hashes before committing outputs. If transfer fails after a known command completion, retry can reuse that outcome. An uncertain dispatch can require review. For shared storage, wait for the verified output or completion inventory before copying results from another machine.
+
+Use [Monitor and control runs](./monitor.mdx#logs-events-and-results) to download available results and [Docker and OpenShell](./docker_and_openshell_for_blueprints.mdx#file-inputs-and-output-handoff) to declare staged inputs and outputs.

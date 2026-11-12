@@ -1,177 +1,91 @@
 ---
 title: "Author a blueprint"
-description: "Package a workflow with explicit execution, contracts, configuration, and versioned dependencies."
+description: "Package a workflow with execution settings, input and output contracts, and versioned dependencies."
 ---
-
-This reference describes the blueprint source format accepted by the SDK and its packaged JSON Schemas. It covers development folders, installed folders, catalog packages, generated blueprints, and ZIP distributions. Core's generated execution manifest is documented separately in [Job Bundle Format](bundle.mdx).
-
-The format identifier is `https://mirrorneuron.io/schemas/blueprint/v1/manifest.schema.json`. The blueprint's `version` is its semantic release version. There is no authored `apiVersion`, `kind`, `manifest_version`, profile, or raw runtime-manifest override in the core document.
 
 ## Package layout
 
-```text
-legal_assistant/
-  manifest.json
-  workflow.json
-  execution.json
-  contracts.json
-  dependencies.json
-  config/default.json
-  config/overwrite.json
-  extensions/llm.json
-  extensions/product.json
-  payloads/
-  LICENSE.md
-  TERM.md
-```
-
-`dependencies.json`, extensions, legal documents, and the local overwrite file are optional. A package with no code assets does not need `payloads/`. Required roles are referenced explicitly; their filenames can differ from these examples.
+A blueprint can be a directory or a ZIP with the same package structure. Put `manifest.json` at its root. Reference workflow, execution, contracts, and default configuration documents by package-relative POSIX path. Add dependencies, extensions, and payloads as your workflow needs them.
 
 ```json
 {
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/manifest.schema.json",
-  "id": "legal_assistant",
-  "name": "Legal Assistant",
+  "id": "document_review",
+  "name": "Document review",
+  "tagline": "Turn a folder of documents into a review packet",
+  "description": "Collect source evidence and publish a review packet.",
   "version": "1.0.0",
-  "description": "Review legal documents and prepare a review packet.",
-  "license": "LICENSE.md",
-  "terms": "TERM.md",
   "workflow": "workflow.json",
   "execution": "execution.json",
   "contracts": "contracts.json",
-  "config": "config/default.json",
-  "dependencies": "dependencies.json",
-  "extensions": {
-    "mn.llm": {"file": "extensions/llm.json", "required": true},
-    "mn.product": {"file": "extensions/product.json", "required": false}
-  }
+  "config": "config/default.json"
 }
 ```
 
-All references are ordinary package-relative POSIX paths. Documents have fixed responsibilities, not arbitrary include or override semantics.
-
-| Document | Responsibility |
+| Document | Put this here |
 | --- | --- |
-| `manifest.json` | Identity, release version, description, legal references, and role references |
-| `workflow.json` | Logical steps, dependencies, dynamic workflows, and workflow policies |
-| `execution.json` | Execution mode, agents, workers, runners, resources, placement, services, schedules, and execution policies |
-| `contracts.json` | Inputs, validation, adapters, live inputs, outputs, artifacts, events, status, and privacy |
-| `dependencies.json` | Skill and agent package names, versions, and sources |
-| `config/default.json` | Operator-tunable defaults |
-| `extensions/*.json` | Platform features and domain descriptors |
+| `manifest.json` | Blueprint identity, version, description, and references |
+| `workflow.json` | Logical steps, dependencies, and workflow behavior |
+| `execution.json` | Execution mode, workers, runners, resources, and service declarations |
+| `contracts.json` | Inputs, validation, outputs, artifacts, and other observable contracts |
+| `config/default.json` | Settings operators can tune |
+| `dependencies.json` | Versioned SDK components, skills, and agents |
+| `extensions/` and `payloads/` | Declared features and packaged code or assets |
 
-The SDK ships Draft 2020-12 schemas for each role and known extension. Canonical schema identifiers resolve against the SDK's local registry without fetching schemas from the network. Unknown core fields, duplicate JSON properties, invalid release versions, missing documents, and unsupported schema identifiers are errors.
-
-## Dependency versions
-
-Declare SDK distributions under `packages` and reusable workers under `skills` or `agents` in `dependencies.json`. Every declared dependency needs a version. Package records use `type: "pip"`, `source: "gar"`, and the distribution name.
-
-Versions accept exact releases (`1.3.47`), PEP 440 ranges (`>=1.3.5,<2.0`), compatible releases (`~=1.3.5`), and trailing wildcards (`1.3.x` or `1.3.*`). Empty values, bare `*`, URLs, environment markers, caret ranges, and `||` are rejected. Authored constraints survive compilation; binary preparation resolves an available compatible artifact. Exact pins provide stronger reproducibility than ranges.
-
-With `MN_USE_LOCAL_SKILLS=1`, source development resolves matching local distribution identities regardless of their declared release range. With `MN_USE_LOCAL_SKILLS=0`, binary preparation preserves constraints and does not automatically select bundled source. Unversioned skills fail preparation; there is no SDK-version fallback for a skill.
-
+Use the packaged schemas for each document. The optional `tagline` must be a single line of 1–80 characters with no leading or trailing whitespace. The catalog can display it in lists while retaining the full description on the detail page.
 
 ## Execution modes
 
-`execution.mode` is required:
+- **Compiled.** Set `execution.mode` to `compiled`. Define the logical steps in `workflow.json` and let the SDK generate the physical agent graph. See [Use workers and skills](./blueprints-and-skills.mdx).
+- **Explicit.** Set the mode to `explicit` to declare execution agents and bindings directly.
 
-- `compiled`: logical workflows, reusable worker declarations, and Python `StepSpec` definitions are compiled into a physical agent graph.
-- `explicit`: a native or custom physical graph is declared directly through execution agents and runtime bindings.
+Use unique step IDs and acyclic dependencies. Define dependencies with step `needs` or a workflow `edges` list. Set `execution.type` for batch or service behavior. Put a shared worker default under `execution.defaults.worker`.
 
-Both modes have the same package structure and use the same loader and submission preparation. `execution.type` specifies batch or service execution. Shared step settings belong in `workflow.defaults.step`; shared workers belong in `execution.defaults.worker` and worker groups. Defaults are applied deterministically by the SDK's format-v1 compiler.
+Put physical capacity settings in `execution.json` under `policies.resource_allocation`. See [Run resource budgets](./resources-and-devices.mdx#run-resource-budgets). Use `policies.workflow_budgets` for named workflow action limits. See [Execution behavior](./runtime-architecture.mdx#workflow-action-allowances).
 
-A logical workflow uses either `needs` on its steps or an explicit `edges` list. An edge can carry its event or condition declaration. Combining the two forms is rejected. Step IDs must be unique, referenced steps must exist, and logical dependencies must be acyclic. Bounded loops and dynamic templates remain explicit workflow capabilities.
+## Dependency versions
 
-`StepSpec` modules define contracts and collaboration. Agent handlers own work, and blueprint payloads own domain policy. The SDK imports StepSpec modules only during requested compilation, in subprocesses with a ten-second deadline. Missing dependencies fail compilation; they never generate substitute nodes.
+Declare each SDK distribution in `packages` with `type: "pip"`, `source: "gar"`, its distribution name, and a version constraint. Declare reusable skills and agents under `skills` and `agents`.
+
+Use an exact version to reproduce a released package. Supported constraints include PEP 440 ranges, compatible releases, and trailing wildcards such as `1.4.*`. Use `MN_USE_LOCAL_SKILLS=1` for source development with matching local distributions. Released preparation uses the authored constraints. A skill that declares `"setup": "on_install"` can execute a setup hook during preparation.
 
 ## Extensions
 
-Each extension document declares its own canonical `$schema`. Manifest extension registrations name the document and state whether support is required.
+Register extension documents under `extensions` in `manifest.json`. Each entry names its `file` and whether it is `required`. Give each extension document its own schema ID.
 
-| Registration | Feature |
+| Registration | Use it for |
 | --- | --- |
-| `mn.llm` | Logical models, provider settings, actor assignments, structured output |
-| `mn.rag` | Grounding, retrieval, embeddings, and knowledge settings |
-| `mn.context` | Context/memory policy and cluster capabilities |
-| `mn.response` | Definition-scoped response services, including bounded job agents |
-| `mn.storage` | Persistent job data resources |
-| `mn.airgap` | Air-gap behavior and offline dependency policy |
-| `mn.ui` | Configuration review, dashboards, and launch presentation |
-| `mn.product` | Product information and discovery descriptors |
-| `mn.testing` | Quick-test descriptors |
-| `mn.agentic` | Bounded research and tool-use policy |
-| `mn.domain` | Blueprint-owned domain descriptors |
+| `mn.llm` | Model profiles and worker model assignments |
+| `mn.rag`, `mn.context` | Retrieval and working context |
+| `mn.response`, `mn.mcp` | Job response services and declared MCP tools |
+| `mn.blocks` | Reusable workflow blocks |
+| `mn.storage`, `mn.airgap` | Job data and offline dependencies |
+| `mn.ui`, `mn.product`, `mn.testing` | Launch presentation, discovery, and tests |
+| `mn.agentic`, `mn.domain` | Bounded agent behavior and domain descriptors |
 
-Known runtime features are handled by the SDK. An unknown required extension fails compilation. Unknown optional descriptive extensions remain in the snapshot and exported package without being executed. Adding a runtime feature requires a handler and a schema; adding fields to the core document is not an extension mechanism.
+An unsupported required extension blocks compilation. An unknown optional descriptor can travel with the package as metadata.
 
 ## Loading and configuration
 
-The public SDK stages are:
+The SDK applies feature defaults, the referenced default configuration, `config/overwrite.json` if present, and invocation overrides in that order. Use `mn blueprint run ./my-blueprint --set PATH=VALUE` for a launch override. Keep credentials in the runtime environment or configured secret source.
 
-```text
-read_blueprint → BlueprintPackage
-resolve_config → ResolvedConfiguration
-compile_blueprint → CompiledBlueprint
-plan_submission → SubmissionPlan
-prepare_submission → PreparedSubmission
-submit → commit or reconcile
-```
-
-`read_blueprint` validates and snapshots a folder. `open_blueprint` is a context manager that accepts a folder or ZIP; extraction is the only transport-specific stage. A package records each document's source path, file content hashes, executable permissions, and a content fingerprint. Document access returns copies, so callers cannot mutate the snapshot.
-
-```python
-from mn_sdk.blueprints import open_blueprint, resolve_config, compile_blueprint
-
-with open_blueprint("./legal_assistant") as package:
-    configuration = resolve_config(package, {"execution": {"quick_test": True}})
-    compiled = compile_blueprint(package, configuration)
-    print(package.manifest["id"], compiled.fingerprint)
-```
-
-Configuration resolves in this order:
-
-1. SDK projections of declared feature descriptors.
-2. The referenced default configuration document.
-3. `config/overwrite.json`, when present in the package snapshot.
-4. Invocation overrides.
-
-The resolver provides identity, model, retrieval, resource, adapter, and human-control settings through one resolved configuration. There is no authored `config.manifest_defaults` path projection list. Worker code uses the SDK runtime configuration and resolved descriptor accessors. Launch identity, environment, and secrets are separate launch inputs; adapters must not mutate process-global environment variables to launch a job.
-
-Compilation fingerprints include the package fingerprint, resolved configuration, and compiled graph. Source changes between reading and compilation are rejected. Fingerprints are deterministic across relocation and ZIP transport, and include referenced documents and payload content.
+The SDK reads, resolves, compiles, and prepares a package before submission. Workers receive a generated descriptor. See [Use the Python SDK](./sdk.mdx#load-and-compile-a-blueprint) to inspect the compiled fingerprint.
 
 ## Catalogs
 
-`index.json` is only an ordered inventory of published package paths:
-
-```json
-["legal_assistant", "purchasing_manager", "research_assistant"]
-```
-
-`read_catalog` validates those folders and derives descriptive records from their manifests and extensions. It does not import blueprint Python, install dependencies, prepare models, restore databases, or provision services. A folder absent from the index remains a valid unpublished package. Duplicate paths and duplicate blueprint identities are errors.
-
-## Submission and ownership
-
-CLI, REST, and Python launches share SDK configuration, compiler, dependency preparation, payload assembly, and native resource contracts. Workers receive one complete resolved descriptor at `runtime/manifest.json`, including role documents and resolved configuration. This is a generated worker artifact, distinct from the package's small authored manifest.
-
-Preparation uses a unique submission identity and tracks native resource ownership. Confirmed preparation failure rolls back resources acquired by that preparation. Cancellation is included. A submission timeout or malformed acknowledgement is not proof that Core rejected the definition. Reconciliation compares the submission identity against Core's authoritative ownership projection before a retry or cleanup. Uncertain outcomes preserve resources.
-
-Persistent job data belongs to the durable job. Input staging and execution identifiers belong to individual launches. Replacement and cleanup must retain these boundaries. Secret injection and monitoring redaction occur at the submission boundary; source migration does not rewrite deployed jobs or run history.
+Put published package paths in the catalog's ordered `index.json`. Use a unique blueprint ID for each entry. Git catalogs can contain folders or submodules pinned to the catalog revision. A local catalog reads the working folders directly. See [Catalog configuration](./env_variables.mdx#blueprint-catalog-resolution).
 
 ## Paths, transport, and export
 
-Folders and extracted ZIPs use the same package path validator. Absolute document paths, traversal, symlinks, duplicate destinations, and conflicting document-role destinations are rejected. ZIP extraction preflights its members before writing, with limits of 32 GiB and 100,000 entries. Folder snapshots apply corresponding content limits. Large assets are hashed and exported in chunks.
-
-`export_blueprint(package, destination)` exports the complete portable file snapshot, including referenced documents, declared assets, code, configuration, and legal files. It excludes development caches and checks for changed files. Export outside the source package. Executable bits survive export and reimport. External dependencies remain explicitly declared; vendoring is optional.
+Keep referenced files inside the package. Use regular files with portable relative paths. Package validation rejects path traversal, symlinks, conflicting destinations, and malformed role documents. Export a portable package outside the source folder with `export_blueprint` from `mn_sdk.blueprints`. Declare any dependency the recipient will need to fetch.
 
 ## Validate and try the package
 
-From the directory containing your blueprint, replace `./my-blueprint` with its path:
+Connect to a local runtime and validate the blueprint from its parent directory.
 
 ```bash
 mn blueprint validate ./my-blueprint
-mn blueprint doctor ./my-blueprint
+mn blueprint doctor ./my-blueprint --check-only
 ```
 
-Fix missing documents, invalid fields, dependency declarations, and prerequisites before launch. Review executable payloads and external actions, then follow [Quickstart](quickstart.mdx) to run sample inputs, inspect outputs, and cancel unfinished work.
-
-The schema format and installed SDK release are separate version numbers. Use compatible CLI, API, SDK, and catalog releases; check the installed SDK's packaged schemas when a package is rejected.
+Review the runner and executable payloads before preparing the package or running it. Fix blocking validation errors and try [a first run](./quickstart.mdx) with sample inputs. If a submission response is lost, inspect its job or operation before submitting again.
